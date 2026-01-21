@@ -6,10 +6,10 @@ Use TEST_RUN_ID to tag different test runs for cost tracking.
 
 Usage:
     # Deploy infrastructure
-    cdk deploy perf-testing-dev --app "python perf_app.py"
+    cdk deploy scenario-1-dev --app "python perf_app.py"
 
     # Update tag for a new test run (updates the TEST_RUN_ID tag on all resources)
-    TEST_RUN_ID=baseline-001 cdk deploy perf-testing-dev --app "python perf_app.py"
+    TEST_RUN_ID=baseline-001 cdk deploy scenario-1-dev --app "python perf_app.py"
 """
 
 import os
