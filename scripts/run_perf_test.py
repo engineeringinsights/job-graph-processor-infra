@@ -34,7 +34,7 @@ def get_queue_url(env: str) -> str:
         raise ValueError(f"IncomingQueueUrl output not found in stack {stack_name}")
     except cf_client.exceptions.ClientError:
         print(f"Error: Stack {stack_name} not found. Deploy it first with:")
-        print(f"  make perf-deploy ENV={env}")
+        print(f"  make deploy ENV={env}")
         sys.exit(1)
 
 
