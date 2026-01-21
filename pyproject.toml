@@ -6,6 +6,7 @@ authors = ["Your Name <your.email@example.com>"]
 packages = [
     { include = "cdk" },
     { include = "service" },
+    { include = "perf_testing" },
 ]
 
 # Lambda runtime dependencies - exported to layer via `poetry export`
