@@ -4,7 +4,7 @@ Performance test runner script.
 Sends test messages to the appropriate queue based on scenario.
 
 Usage:
-    python scripts/run_perf_test.py --scenario sqs-lambda-s3 --messages 100 --env dev
+    python scripts/run_perf_test.py --messages 100 --env dev
 """
 
 import argparse
