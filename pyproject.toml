@@ -1,12 +1,11 @@
 [tool.poetry]
-name = "cdk-lambda-dynamodb"
+name = "job-graph-processor-infra"
 version = "0.1.0"
-description = "AWS CDK Python infrastructure template with Lambda and DynamoDB"
+description = "AWS CDK infrastructure for job graph processor performance testing"
 authors = ["Your Name <your.email@example.com>"]
 packages = [
     { include = "cdk" },
     { include = "service" },
-    { include = "perf_testing" },
 ]
 
 # Lambda runtime dependencies - exported to layer via `poetry export`
