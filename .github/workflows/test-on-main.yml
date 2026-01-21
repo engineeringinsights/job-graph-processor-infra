@@ -1,0 +1,10 @@
+name: Test Main
+on:
+  push:
+    branches: [main]
+concurrency: ci-${{ github.ref}}-${{ github.event_name }}
+jobs:
+  build-and-test:
+    uses: ./.github/workflows/test-common.yml
+    with:
+      ref: ${{ github.event.pull_request.head.ref }}

@@ -1,0 +1,71 @@
+{
+  "name": "AWS CDK Web Infrastructure Template",
+  "description": "Reusable AWS CDK Python template for multi-domain web applications with VPC, ALB, EC2, CodeDeploy, and CloudWatch",
+  "topics": [
+    "aws-cdk",
+    "infrastructure-as-code",
+    "python",
+    "aws",
+    "vpc",
+    "alb",
+    "ec2",
+    "codedeploy",
+    "cloudwatch",
+    "template"
+  ],
+  "checklist": {
+    "files_to_modify": [
+      "constants.py",
+      "pyproject.toml",
+      "Makefile"
+    ],
+    "files_to_remove": [
+      "diagram.dot",
+      "diagram.png",
+      "exanify.drawio",
+      "cdk.context.json"
+    ],
+    "aws_setup_required": [
+      "Route53 hosted zones for domains",
+      "CDK bootstrap in target accounts",
+      "OIDC provider for GitHub Actions (optional)"
+    ]
+  },
+  "patterns_included": [
+    {
+      "name": "Multi-Environment Configuration",
+      "description": "Centralized config in constants.py with dev/prod separation",
+      "files": ["constants.py", "app.py"]
+    },
+    {
+      "name": "Network Stack",
+      "description": "VPC with public/private subnets, NAT gateway, VPC endpoints",
+      "files": ["cdk/network_stack.py"]
+    },
+    {
+      "name": "Compute Stack",
+      "description": "EC2 instances with CodeDeploy, SNS alerts",
+      "files": ["cdk/compute_stack.py"]
+    },
+    {
+      "name": "ALB Construct",
+      "description": "Application Load Balancer with SSL, host-based routing",
+      "files": ["cdk/alb_construct.py"]
+    },
+    {
+      "name": "Domain Construct",
+      "description": "Per-domain EC2 setup with monitoring",
+      "files": ["cdk/domain_construct.py"]
+    },
+    {
+      "name": "Snapshot Testing",
+      "description": "CDK snapshot tests with syrupy",
+      "files": ["tests/unit/"]
+    },
+    {
+      "name": "CI/CD Workflows",
+      "description": "GitHub Actions for testing and deployment",
+      "files": [".github/workflows/"]
+    }
+  ]
+}

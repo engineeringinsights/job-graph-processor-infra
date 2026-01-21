@@ -1,0 +1,50 @@
+name: Test Common
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+
+jobs:
+  test_common:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Python and Poetry
+        uses: actions/setup-python@v4
+        with:
+          python-version-file: .github/workflows/.python-version
+
+      - name: Install Poetry
+        run: |
+          poetryVersion=$(cat .github/workflows/.poetry-version)
+          pip install --upgrade pip poetry==$poetryVersion
+          poetry self add poetry-plugin-export
+
+      - name: Install Project Dependencies
+        run: |
+          poetry install
+
+      - name: Run Lint
+        run: |
+          pip install pre-commit
+          pre-commit install
+          make lint-strict
+
+      - name: Prepare Unit Tests
+        uses: actions/setup-node@v3
+        with:
+          node-version-file: .github/workflows/.node-version
+
+      - name: Build Lambda Layer
+        run: |
+          make build
+
+      - name: Execute Tests
+        run: |
+          make test-unit

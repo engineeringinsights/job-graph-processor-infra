@@ -1,0 +1,56 @@
+name: Manual Deployment
+run-name: Deploy to ${{ inputs.environment }} from ${{ inputs.ref }} by @${{ github.actor }}
+concurrency: ci-${{ github.event.inputs.environment }}
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+      ref:
+        description: 'Release tag to deploy from'
+        required: true
+      aws_oidc_role:
+        description: 'AWS OIDC Deployment role'
+        required: true
+permissions:
+  id-token: write
+  contents: read
+jobs:
+  deploy:
+    name: 'deploy ref ${{ inputs.ref }} to ${{ inputs.environment }}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.ref }}
+      - name: install poetry
+        run: |
+          poetryVersion=$(cat .github/workflows/.poetry-version)
+          pip install --upgrade pip poetry==$poetryVersion
+      - uses: actions/setup-python@v4
+        with:
+          python-version-file: .github/workflows/.python-version
+      - name: install
+        run: |
+          poetry install
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: .github/workflows/.node-version
+      - run: |
+          npm install -g aws-cdk@^2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{inputs.aws_oidc_role}}
+          aws-region: eu-west-1
+      - name: deploy
+        id: deploy
+        run: |
+          poetry run make deploy ENV=${{inputs.environment}}
