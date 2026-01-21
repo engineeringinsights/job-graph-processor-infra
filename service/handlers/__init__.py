@@ -1,1 +1,3 @@
-# Lambda handlers package
+"""
+Lambda handlers for performance testing.
+"""

@@ -1,6 +1,7 @@
 # Makefile
 # Set default value of ENV to "dev" if not provided
 ENV ?= dev
+TEST_RUN_ID ?= default
 
 poetryVersion := $(shell cat .github/workflows/.poetry-version)
 
@@ -31,23 +32,23 @@ build:
 
 .PHONY: synth
 synth: build
-	ENV=$(ENV) npx cdk synth --app "python app.py" --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=myproject"
+	ENV=$(ENV) TEST_RUN_ID=$(TEST_RUN_ID) npx cdk synth --app "python perf_app.py" --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre"
 	@ if [ "$(ENV)" = "dev" ]; then \
 		npx cdk-dia; \
 	fi
 
 .PHONY: deploy
 deploy: build
-	ENV=$(ENV) npx cdk deploy --app "python app.py" --all --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=myproject" --require-approval=never
+	ENV=$(ENV) TEST_RUN_ID=$(TEST_RUN_ID) npx cdk deploy --app "python perf_app.py" scenario-1-$(ENV) --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre" --require-approval=never
 
 # Destroy resources in dev environment with confirmation
-.PHONY: destroy-dev
-destroy-dev:
-	@read -p "Are you sure you want to destroy the dev environment? (y/N): " confirm; \
+.PHONY: destroy
+destroy:
+	@read -p "Are you sure you want to destroy the stack? (y/N): " confirm; \
 	if [ "$$confirm" = "y" ]; then \
-		ENV=dev npx cdk destroy --app "python app.py" --all --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=myproject"; \
+		ENV=$(ENV) npx cdk destroy --app "python perf_app.py" scenario-1-$(ENV) --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre"; \
 	else \
-		echo "Aborted destroy for dev environment."; \
+		echo "Aborted destroy."; \
 	fi
 
 # Clean build artifacts
@@ -87,3 +88,32 @@ snapshot-update:
 .PHONY: test-unit
 test-unit:
 	poetry run pytest tests/unit
+
+# =============================================================================
+# Performance Testing Targets
+# =============================================================================
+
+# Run performance test (sends messages to queue)
+.PHONY: run
+run:
+	poetry run python scripts/run_perf_test.py --messages $(MESSAGES) --env $(ENV)
+
+# Show help
+.PHONY: help
+help:
+	@echo "Commands:"
+	@echo ""
+	@echo "  make synth                         - Synthesize stack"
+	@echo "  make deploy                        - Deploy stack"
+	@echo "  make destroy                       - Destroy stack"
+	@echo "  make run MESSAGES=100              - Run perf test with N messages"
+	@echo ""
+	@echo "Environment Variables:"
+	@echo "  ENV=dev|prod                       - Target environment (default: dev)"
+	@echo "  TEST_RUN_ID=<id>                   - Cost allocation tag for this test run"
+	@echo ""
+	@echo "Workflow:"
+	@echo "  1. Deploy once:  make deploy ENV=dev"
+	@echo "  2. Tag test run: TEST_RUN_ID=test-001 make deploy ENV=dev"
+	@echo "  3. Run test:     make run MESSAGES=1000 ENV=dev"
+	@echo "  4. View costs in AWS Cost Explorer filtered by PerfTestRun tag"

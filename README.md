@@ -1,162 +1,115 @@
-# AWS CDK Lambda DynamoDB Template
+# Job Graph Processor Infrastructure
 
-A reusable AWS CDK template for deploying serverless applications with:
-- Lambda functions with Python 3.13
-- DynamoDB table with pk/sk pattern
-- Lambda Layer for shared dependencies (aws-lambda-powertools)
-- CloudWatch logging with JSON format
-- X-Ray tracing
-- CDK-nag security checks
+AWS CDK infrastructure for performance testing job graph processing architectures.
 
-## 🚀 Quick Start
+## Overview
 
-### 1. Create New Repository from Template
+This project provides infrastructure for comparing different approaches to processing job graphs - where jobs have dependencies on other jobs and an external scheduler determines execution order.
 
-Click **"Use this template"** button on GitHub, or:
-```bash
-gh repo create my-new-service --template your-org/cdk-lambda-dynamodb-template
-```
+**Key Concept**: Deploy once, run many tests. Track costs over time using AWS Cost Allocation Tags.
 
-### 2. Configure Your Project
+## Scenarios
 
-Edit `constants.py` with your values:
+| Scenario | Stack Name | Description | Status |
+|----------|------------|-------------|--------|
+| **Scenario 1** | `scenario-1-{env}` | SQS → Lambda → S3 (serverless) | ✅ Available |
+| Scenario 2 | `scenario-2-{env}` | SQS → ECS → S3 (containers) | 🔜 Coming soon |
+| Scenario 3 | `scenario-3-{env}` | Step Functions orchestration | 🔜 Coming soon |
+
+## Quick Start
+
+### 1. Configure Environment
+
+Edit `constants.py` with your AWS account details:
 
 ```python
-# constants.py
 ENV_CONFIG = {
     "dev": {
-        "account": "YOUR_DEV_ACCOUNT_ID",
-        "region": "eu-west-1",
-    },
-    "prod": {
-        "account": "YOUR_PROD_ACCOUNT_ID",
+        "account": "YOUR_ACCOUNT_ID",
         "region": "eu-west-1",
     },
 }
-
-PREFIX = "your-project-prefix"  # Used for resource naming
 ```
 
-### 3. Bootstrap & Install Dependencies
+### 2. Bootstrap & Deploy
 
 ```bash
-# Activate your Python 3.13 environment
+# Activate Python environment
 micromamba activate py313
 
-# Install dependencies and setup project
+# Install dependencies
 make bootstrap
+
+# Deploy Scenario 1
+make deploy ENV=dev
 ```
 
-### 4. Deploy
+### 3. Run Performance Test
 
 ```bash
-# Deploy to dev
-make deploy ENV=dev
-
-# Deploy to prod
-make deploy ENV=prod
+# Send 1000 test messages
+make run MESSAGES=1000 ENV=dev
 ```
 
-## 📁 Project Structure
+### 4. Track Costs
+
+Use `TEST_RUN_ID` to tag test runs for cost comparison:
+
+```bash
+# Deploy with cost tracking tag
+TEST_RUN_ID=baseline-256mb make deploy ENV=dev
+make run MESSAGES=1000 ENV=dev
+
+# Change configuration and redeploy with new tag
+TEST_RUN_ID=test-512mb make deploy ENV=dev
+make run MESSAGES=1000 ENV=dev
+
+# Compare costs in AWS Cost Explorer by PerfTestRun tag
+```
+
+## Project Structure
 
 ```
-├── app.py                     # CDK app entry point
-├── constants.py               # 🔧 CONFIGURE THIS - Environment config
+├── perf_app.py              # CDK app entry point
+├── constants.py             # 🔧 CONFIGURE THIS - AWS account config
 ├── cdk/
-│   ├── app_stack.py           # Main application stack
-│   ├── lambda_dynamodb_construct.py  # Lambda + DynamoDB construct
-│   └── constants.py           # CDK constants (timeouts, memory, etc.)
-├── service/                   # Lambda handlers (deployed to AWS)
+│   ├── scenario1_stack.py   # Scenario 1: Lambda + S3
+│   ├── constants.py         # Stack configuration
+│   └── README.md            # Detailed documentation
+├── service/                 # Lambda code
 │   ├── handlers/
-│   │   ├── create_item.py     # POST handler
-│   │   └── get_item.py        # GET handler
-│   ├── dal/
-│   │   └── dynamodb.py        # Data access layer
-│   └── models/
-│       └── item.py            # Pydantic/dataclass models
-├── layer/                     # Lambda layer dependencies
-│   └── requirements.txt       # aws-lambda-powertools, etc.
-├── tests/
-│   └── unit/                  # Unit tests
-├── .github/workflows/         # CI/CD pipelines
-├── Makefile                   # Common commands
-└── pyproject.toml             # Python dependencies
+│   │   └── processor.py     # Job processor handler
+│   └── dal/
+│       ├── dynamodb.py      # DynamoDB helper
+│       ├── s3.py            # S3 helper
+│       └── sqs.py           # SQS helper
+├── scripts/
+│   └── run_perf_test.py     # Test runner
+└── Makefile                 # Build commands
 ```
 
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     AWS Account                              │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────────┐│
-│  │                  Lambda Layer                           ││
-│  │         (aws-lambda-powertools, boto3)                  ││
-│  └─────────────────────────────────────────────────────────┘│
-│                           │                                  │
-│           ┌───────────────┴───────────────┐                 │
-│           ▼                               ▼                  │
-│  ┌─────────────────┐             ┌─────────────────┐        │
-│  │  CreateItem     │             │   GetItem       │        │
-│  │  Lambda (ARM64) │             │  Lambda (ARM64) │        │
-│  └────────┬────────┘             └────────┬────────┘        │
-│           │                               │                  │
-│           └───────────────┬───────────────┘                 │
-│                           ▼                                  │
-│              ┌─────────────────────────┐                    │
-│              │      DynamoDB Table     │                    │
-│              │   (pk/sk, on-demand)    │                    │
-│              └─────────────────────────┘                    │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 🛠️ Development
-
-### Make Commands
+## Make Commands
 
 | Command | Description |
 |---------|-------------|
-| `make bootstrap` | Install all dependencies |
-| `make build` | Build Lambda code for deployment |
-| `make synth` | Synthesize CloudFormation template |
-| `make deploy ENV=dev` | Deploy to dev environment |
-| `make destroy-dev` | Destroy dev environment (with confirmation) |
-| `make lint` | Run linting checks |
-| `make lint-fix` | Auto-fix linting issues |
-| `make test-unit` | Run unit tests |
-| `make clean` | Clean build artifacts |
+| `make bootstrap` | Install dependencies |
+| `make deploy` | Deploy stack |
+| `make destroy` | Destroy stack |
+| `make run MESSAGES=N` | Send N test messages |
+| `make synth` | Synthesize CloudFormation |
+| `make lint` | Run linting |
+| `make test-unit` | Run tests |
+| `make help` | Show all commands |
 
-### Adding New Lambda Handlers
+## Documentation
 
-1. Create handler in `service/handlers/your_handler.py`
-2. Add function to `cdk/lambda_dynamodb_construct.py`
-3. Grant appropriate DynamoDB permissions
+See [cdk/README.md](cdk/README.md) for detailed documentation on:
+- Architecture diagrams
+- Cost tracking with tags
+- Message formats
+- Configuration options
+- Troubleshooting
 
-### Modifying the Layer
-
-Edit `layer/requirements.txt` and redeploy. The layer is built automatically during CDK deployment.
-
-## 📦 Dependencies
-
-### CDK Dependencies (pyproject.toml)
-- `aws-cdk-lib` - CDK core library
-- `aws-cdk-aws-lambda-python-alpha` - Python Lambda layer support
-- `cdk-nag` - Security checks
-
-### Lambda Runtime Dependencies (layer/requirements.txt)
-- `aws-lambda-powertools` - Logging, tracing, metrics
-- `boto3` - AWS SDK
-
-## 🔒 Security
-
-This template includes:
-- CDK-nag security checks with AwsSolutionsChecks
-- Least-privilege IAM policies
-- DynamoDB point-in-time recovery enabled
-- CloudWatch log retention policies
-- X-Ray tracing enabled
-
-## 📝 License
+## License
 
 MIT
