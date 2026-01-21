@@ -252,7 +252,7 @@ make run MESSAGES=5000 ENV=dev
 
 ### Messages not processing?
 - Check DLQ for failed messages
-- Check Lambda CloudWatch logs: `/aws/lambda/perf-testing-{env}-processor`
+- Check Lambda CloudWatch logs: `/aws/lambda/scenario-1-{env}-processor`
 
 ### Can't see costs by tag?
 - Ensure tag is activated in Billing Console
