@@ -21,7 +21,7 @@ import boto3
 def get_queue_url(env: str) -> str:
     """Get the incoming queue URL from CloudFormation outputs."""
     cf_client = boto3.client("cloudformation")
-    stack_name = f"perf-testing-{env}"
+    stack_name = f"scenario-1-{env}"
 
     try:
         response = cf_client.describe_stacks(StackName=stack_name)
