@@ -1,7 +1,7 @@
 # Makefile
 # Set default value of ENV to "dev" if not provided
 ENV ?= dev
-TEST_RUN_ID ?= TEST_1
+TEST_RUN_ID ?= default
 
 poetryVersion := $(shell cat .github/workflows/.poetry-version)
 
