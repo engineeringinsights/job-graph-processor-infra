@@ -1,57 +1,90 @@
-"""
-S3 data access handler.
-"""
-
-import json
-from typing import Any
+import io
 
 import boto3
-from aws_lambda_powertools import Logger, Tracer
+import pandas as pd
+from botocore.exceptions import ClientError
 
-logger = Logger()
-tracer = Tracer()
+from service.dal.interface import (
+    IModelDataAccess,
+)
 
 
-class S3Handler:
-    """Handler for S3 read/write operations."""
+def _normalize_prefix(prefix: str) -> str:
+    if not prefix:
+        return ""
+    return prefix.strip("/")
 
-    def __init__(self, bucket_name: str) -> None:
-        self.bucket_name = bucket_name
-        self.client = boto3.client("s3")
 
-    @tracer.capture_method
-    def read_json(self, key: str) -> dict[str, Any] | None:
-        """
-        Read JSON data from S3.
+class ModelS3DataAccess(IModelDataAccess):
+    def __init__(self, bucket: str, prefix: str, model_id: int):
+        self.bucket = bucket
+        self.prefix = _normalize_prefix(prefix)
+        self.model_id = model_id
+        self.s3 = None
 
-        Args:
-            key: S3 object key
+    def _setup_client(self):
+        if not self.s3:
+            self.s3 = boto3.client("s3")
 
-        Returns:
-            Parsed JSON data or None if not found
-        """
+    def _key(self, *parts: str) -> str:
+        parts = [p.strip("/") for p in parts if p is not None and p != ""]
+        if self.prefix:
+            return "/".join([self.prefix] + parts)
+        return "/".join(parts)
+
+    def _get_parquet_df(self, key: str) -> pd.DataFrame:
         try:
-            response = self.client.get_object(Bucket=self.bucket_name, Key=key)
-            data: dict[str, Any] = json.loads(response["Body"].read().decode("utf-8"))
-            logger.debug("Read data from S3", extra={"key": key})
-            return data
-        except self.client.exceptions.NoSuchKey:
-            logger.warning("S3 key not found", extra={"key": key})
-            return None
+            self._setup_client()
+            resp = self.s3.get_object(Bucket=self.bucket, Key=key)
+        except ClientError as e:
+            # Translate not found to a Pythonic error
+            raise FileNotFoundError(
+                f"S3 object s3://{self.bucket}/{key} not found: {e}"
+            )
+        body = resp["Body"].read()
+        bio = io.BytesIO(body)
+        bio.seek(0)
+        df = pd.read_parquet(bio)
+        return df
 
-    @tracer.capture_method
-    def write_json(self, key: str, data: dict[str, Any]) -> None:
-        """
-        Write JSON data to S3.
-
-        Args:
-            key: S3 object key
-            data: Data to write
-        """
-        self.client.put_object(
-            Bucket=self.bucket_name,
-            Key=key,
-            Body=json.dumps(data),
-            ContentType="application/json",
+    def get_landing_model(self, airport_iata: str) -> pd.DataFrame:
+        key = self._key(
+            "landing_delay_models", str(self.model_id), f"{airport_iata}.parquet"
         )
-        logger.debug("Wrote data to S3", extra={"key": key})
+        return self._get_parquet_df(key)
+
+    def get_departure_model(self, airport_iata: str) -> pd.DataFrame:
+        key = self._key(
+            "departure_delay_models", str(self.model_id), f"{airport_iata}.parquet"
+        )
+        return self._get_parquet_df(key)
+
+    def store_landing_model(self, delays: pd.DataFrame, airport_iata: str):
+        """Store landing delay model DataFrame as parquet file on S3."""
+        self._setup_client()
+        key = self._key(
+            "landing_delay_models", str(self.model_id), f"{airport_iata}.parquet"
+        )
+
+        # Convert DataFrame to parquet in memory
+        buffer = io.BytesIO()
+        delays.to_parquet(buffer, index=False)
+        buffer.seek(0)
+
+        # Upload to S3
+        self.s3.put_object(Bucket=self.bucket, Key=key, Body=buffer.getvalue())
+
+    def store_departure_model(self, delays: pd.DataFrame, airport_iata: str):
+        """Store departure delay model DataFrame as parquet file on S3."""
+        self._setup_client()
+        key = self._key(
+            "departure_delay_models", str(self.model_id), f"{airport_iata}.parquet"
+        )
+
+        # Convert DataFrame to parquet in memory
+        buffer = io.BytesIO()
+        delays.to_parquet(buffer, index=False)
+        buffer.seek(0)
+
+        # Upload to S3
+        self.s3.put_object(Bucket=self.bucket, Key=key, Body=buffer.getvalue())

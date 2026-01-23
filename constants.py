@@ -1,3 +1,5 @@
+import os
+
 # =============================================================================
 # PROJECT CONFIGURATION TEMPLATE
 # =============================================================================
@@ -18,3 +20,6 @@ ENV_CONFIG = {
 
 # Project prefix used for resource naming (keep short, lowercase, alphanumeric)
 PREFIX = "myproject"
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+S3_BUCKET = "ei-flightdelaypredictions-607360609737"
