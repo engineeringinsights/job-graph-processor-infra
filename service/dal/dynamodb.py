@@ -49,7 +49,10 @@ class DynamoDBHandler:
             item: Item to store (must include pk and sk)
         """
         self.table.put_item(Item=item)
-        logger.debug("Stored item in DynamoDB", extra={"pk": item.get("pk"), "sk": item.get("sk")})
+        logger.debug(
+            "Stored item in DynamoDB",
+            extra={"pk": item.get("pk"), "sk": item.get("sk")},
+        )
 
     @tracer.capture_method
     def update_item(
@@ -127,7 +130,10 @@ class DynamoDBHandler:
 
         response = self.table.query(**kwargs)
         items: list[dict[str, Any]] = response.get("Items", [])
-        logger.debug("Queried DynamoDB", extra={"pk": pk, "sk_prefix": sk_prefix, "count": len(items)})
+        logger.debug(
+            "Queried DynamoDB",
+            extra={"pk": pk, "sk_prefix": sk_prefix, "count": len(items)},
+        )
         return items
 
     @tracer.capture_method

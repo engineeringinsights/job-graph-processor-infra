@@ -63,7 +63,9 @@ class Scenario1Stack(Stack):
         self.outgoing_queue = self._create_outgoing_queue()
         self.layer = self._create_layer()
         self.lambda_role = self._create_lambda_role()
-        self.processor_function = self._create_processor_lambda(lambda_memory_size, lambda_timeout, batch_size)
+        self.processor_function = self._create_processor_lambda(
+            lambda_memory_size, lambda_timeout, batch_size
+        )
 
         # Outputs
         self._create_outputs()
@@ -169,7 +171,9 @@ class Scenario1Stack(Stack):
             "LambdaRole",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name(f"service-role/{constants.LAMBDA_BASIC_EXECUTION_ROLE}")
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    f"service-role/{constants.LAMBDA_BASIC_EXECUTION_ROLE}"
+                )
             ],
         )
 
@@ -185,7 +189,11 @@ class Scenario1Stack(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=["cloudwatch:PutMetricData"],
                 resources=["*"],
-                conditions={"StringEquals": {"cloudwatch:namespace": constants.METRICS_NAMESPACE}},
+                conditions={
+                    "StringEquals": {
+                        "cloudwatch:namespace": constants.METRICS_NAMESPACE
+                    }
+                },
             )
         )
 
@@ -260,34 +268,77 @@ class Scenario1Stack(Stack):
             value=self.incoming_queue.queue_url,
             description="Incoming queue URL - send jobs here",
         )
-        CfnOutput(self, "IncomingQueueArn", value=self.incoming_queue.queue_arn, description="Incoming queue ARN")
+        CfnOutput(
+            self,
+            "IncomingQueueArn",
+            value=self.incoming_queue.queue_arn,
+            description="Incoming queue ARN",
+        )
         CfnOutput(
             self,
             "OutgoingQueueUrl",
             value=self.outgoing_queue.queue_url,
             description="Outgoing queue URL - completed jobs appear here",
         )
-        CfnOutput(self, "OutgoingQueueArn", value=self.outgoing_queue.queue_arn, description="Outgoing queue ARN")
-        CfnOutput(self, "BucketName", value=self.bucket.bucket_name, description="S3 bucket for job details")
-        CfnOutput(self, "TableName", value=self.table.table_name, description="DynamoDB table for job metadata")
-        CfnOutput(self, "TableArn", value=self.table.table_arn, description="DynamoDB table ARN")
-        CfnOutput(self, "ProcessorFunctionName", value=self.processor_function.function_name)
-        CfnOutput(self, "TestRunId", value=self.test_run_id, description="Current test run ID for cost tracking")
+        CfnOutput(
+            self,
+            "OutgoingQueueArn",
+            value=self.outgoing_queue.queue_arn,
+            description="Outgoing queue ARN",
+        )
+        CfnOutput(
+            self,
+            "BucketName",
+            value=self.bucket.bucket_name,
+            description="S3 bucket for job details",
+        )
+        CfnOutput(
+            self,
+            "TableName",
+            value=self.table.table_name,
+            description="DynamoDB table for job metadata",
+        )
+        CfnOutput(
+            self,
+            "TableArn",
+            value=self.table.table_arn,
+            description="DynamoDB table ARN",
+        )
+        CfnOutput(
+            self, "ProcessorFunctionName", value=self.processor_function.function_name
+        )
+        CfnOutput(
+            self,
+            "TestRunId",
+            value=self.test_run_id,
+            description="Current test run ID for cost tracking",
+        )
 
     def _add_nag_suppressions(self) -> None:
         """Add cdk-nag suppressions."""
         NagSuppressions.add_resource_suppressions(
             self.lambda_role,
             [
-                {"id": "AwsSolutions-IAM4", "reason": "Using AWS managed policy for Lambda basic execution"},
-                {"id": "AwsSolutions-IAM5", "reason": "X-Ray and CloudWatch require wildcard permissions"},
+                {
+                    "id": "AwsSolutions-IAM4",
+                    "reason": "Using AWS managed policy for Lambda basic execution",
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "X-Ray and CloudWatch require wildcard permissions",
+                },
             ],
             apply_to_children=True,
         )
 
         NagSuppressions.add_resource_suppressions(
             self.bucket,
-            [{"id": "AwsSolutions-S1", "reason": "Access logging not required for perf testing"}],
+            [
+                {
+                    "id": "AwsSolutions-S1",
+                    "reason": "Access logging not required for perf testing",
+                }
+            ],
         )
 
         NagSuppressions.add_resource_suppressions(
@@ -297,10 +348,20 @@ class Scenario1Stack(Stack):
 
         NagSuppressions.add_resource_suppressions(
             self.outgoing_queue,
-            [{"id": "AwsSolutions-SQS3", "reason": "Outgoing queue is for notifications only, no DLQ needed"}],
+            [
+                {
+                    "id": "AwsSolutions-SQS3",
+                    "reason": "Outgoing queue is for notifications only, no DLQ needed",
+                }
+            ],
         )
 
         NagSuppressions.add_resource_suppressions(
             self.processor_function,
-            [{"id": "AwsSolutions-L1", "reason": "Using Python 3.13 which is the latest supported runtime"}],
+            [
+                {
+                    "id": "AwsSolutions-L1",
+                    "reason": "Using Python 3.13 which is the latest supported runtime",
+                }
+            ],
         )

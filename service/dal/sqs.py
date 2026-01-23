@@ -20,7 +20,9 @@ class SQSHandler:
         self.client = boto3.client("sqs")
 
     @tracer.capture_method
-    def send_message(self, message: dict[str, Any], message_group_id: str | None = None) -> str:
+    def send_message(
+        self, message: dict[str, Any], message_group_id: str | None = None
+    ) -> str:
         """
         Send a message to the SQS queue.
 
@@ -42,7 +44,10 @@ class SQSHandler:
         response = self.client.send_message(**params)
         message_id: str = response["MessageId"]
 
-        logger.debug("Sent message to SQS", extra={"message_id": message_id, "queue_url": self.queue_url})
+        logger.debug(
+            "Sent message to SQS",
+            extra={"message_id": message_id, "queue_url": self.queue_url},
+        )
         return message_id
 
     @tracer.capture_method
@@ -74,7 +79,11 @@ class SQSHandler:
 
         logger.debug(
             "Sent message batch to SQS",
-            extra={"successful": successful, "failed": failed, "queue_url": self.queue_url},
+            extra={
+                "successful": successful,
+                "failed": failed,
+                "queue_url": self.queue_url,
+            },
         )
 
         return dict(response)

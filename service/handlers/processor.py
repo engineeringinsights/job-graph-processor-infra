@@ -45,7 +45,9 @@ sqs_handler = SQSHandler(OUTGOING_QUEUE_URL)
 
 
 @tracer.capture_method
-def process_job(job_data: dict[str, Any], input_data: dict[str, Any] | None) -> dict[str, Any]:
+def process_job(
+    job_data: dict[str, Any], input_data: dict[str, Any] | None
+) -> dict[str, Any]:
     """
     Process a job and return results.
 
@@ -129,7 +131,9 @@ def record_handler(record: SQSRecord) -> None:
 
     # Record metrics
     processing_time_ms = (time.perf_counter() - start_time) * 1000
-    metrics.add_metric(name="ProcessingTimeMs", unit=MetricUnit.Milliseconds, value=processing_time_ms)
+    metrics.add_metric(
+        name="ProcessingTimeMs", unit=MetricUnit.Milliseconds, value=processing_time_ms
+    )
     metrics.add_metric(name="JobsCompleted", unit=MetricUnit.Count, value=1)
 
     logger.info(
@@ -145,7 +149,9 @@ def record_handler(record: SQSRecord) -> None:
 @logger.inject_lambda_context
 @tracer.capture_lambda_handler
 @metrics.log_metrics(capture_cold_start_metric=True)
-def handler(event: dict[str, Any], context: LambdaContext) -> PartialItemFailureResponse:
+def handler(
+    event: dict[str, Any], context: LambdaContext
+) -> PartialItemFailureResponse:
     """
     Lambda handler for processing SQS messages.
 
