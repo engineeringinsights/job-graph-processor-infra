@@ -40,7 +40,7 @@ class ModelS3DataAccess(IModelDataAccess):
             # Translate not found to a Pythonic error
             raise FileNotFoundError(
                 f"S3 object s3://{self.bucket}/{key} not found: {e}"
-            )
+            ) from e
         body = resp["Body"].read()
         bio = io.BytesIO(body)
         bio.seek(0)
