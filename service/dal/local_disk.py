@@ -94,5 +94,5 @@ class PercentileslLocalDiskDataAccess(IPercentilesDataAccess):
     def get_percentiles(self, sequence_id: int) -> dict:
         full_path = self.path + f"/percentiles/{sequence_id}.json"
         with open(full_path) as file:
-            data = json.load(file)
+            data: dict = json.load(file)
         return data

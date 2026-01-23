@@ -20,17 +20,16 @@ class ModelS3DataAccess(IModelDataAccess):
         self.bucket = bucket
         self.prefix = _normalize_prefix(prefix)
         self.model_id = model_id
-        self.s3 = None
 
     def _setup_client(self):
         if not self.s3:
             self.s3 = boto3.client("s3")
 
     def _key(self, *parts: str) -> str:
-        parts = [p.strip("/") for p in parts if p is not None and p != ""]
+        stripped_parts = [p.strip("/") for p in parts if p is not None and p != ""]
         if self.prefix:
-            return "/".join([self.prefix] + parts)
-        return "/".join(parts)
+            return "/".join([self.prefix] + stripped_parts)
+        return "/".join(stripped_parts)
 
     def _get_parquet_df(self, key: str) -> pd.DataFrame:
         try:
