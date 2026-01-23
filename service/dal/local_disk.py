@@ -19,35 +19,23 @@ class ModelLocalDiskDataAccess(IModelDataAccess):
         self.model_id = model_id
 
     def get_landing_model(self, airport_iata: str) -> pd.DataFrame:
-        full_path = (
-            self.path + f"/landing_delay_models/{self.model_id}/{airport_iata}.parquet"
-        )
+        full_path = self.path + f"/landing_delay_models/{self.model_id}/{airport_iata}.parquet"
         df = pd.read_parquet(full_path)
         return df
 
     def get_departure_model(self, airport_iata: str) -> pd.DataFrame:
-        full_path = (
-            self.path
-            + f"/departure_delay_models/{self.model_id}/{airport_iata}.parquet"
-        )
+        full_path = self.path + f"/departure_delay_models/{self.model_id}/{airport_iata}.parquet"
         df = pd.read_parquet(full_path)
         return df
 
     def store_landing_model(self, delays: pd.DataFrame, airport_iata: str):
-        full_path = (
-            self.path + f"/landing_delay_models/{self.model_id}/{airport_iata}.parquet"
-        )
+        full_path = self.path + f"/landing_delay_models/{self.model_id}/{airport_iata}.parquet"
         os.makedirs(self.path + f"/landing_delay_models/{self.model_id}", exist_ok=True)
         delays.to_parquet(full_path)
 
     def store_departure_model(self, delays: pd.DataFrame, airport_iata: str):
-        full_path = (
-            self.path
-            + f"/departure_delay_models/{self.model_id}/{airport_iata}.parquet"
-        )
-        os.makedirs(
-            self.path + f"/departure_delay_models/{self.model_id}", exist_ok=True
-        )
+        full_path = self.path + f"/departure_delay_models/{self.model_id}/{airport_iata}.parquet"
+        os.makedirs(self.path + f"/departure_delay_models/{self.model_id}", exist_ok=True)
         delays.to_parquet(full_path)
 
 

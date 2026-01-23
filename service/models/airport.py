@@ -2,7 +2,6 @@ from pydantic import BaseModel
 
 
 class AirportDto(BaseModel):
-
     id: int
     name: str
     city: str

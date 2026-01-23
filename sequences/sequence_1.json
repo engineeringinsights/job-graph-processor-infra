@@ -1,0 +1,27 @@
+{
+    "sequence_id": 1,
+    "home_airport_iata": "LHR",
+    "routes": [
+        {
+            "origin_iata": "LHR",
+            "destination_iata": "CDG",
+            "estimated_gate_open_time": "06:00:00",
+            "estimated_takeoff_time": "07:15:00",
+            "estimated_arrival_time": "08:30:00"
+        },
+        {
+            "origin_iata": "CDG",
+            "destination_iata": "FRA",
+            "estimated_gate_open_time": "09:00:00",
+            "estimated_takeoff_time": "10:20:00",
+            "estimated_arrival_time": "11:45:00"
+        },
+        {
+            "origin_iata": "FRA",
+            "destination_iata": "LHR",
+            "estimated_gate_open_time": "12:15:00",
+            "estimated_takeoff_time": "13:30:00",
+            "estimated_arrival_time": "14:45:00"
+        }
+    ]
+}

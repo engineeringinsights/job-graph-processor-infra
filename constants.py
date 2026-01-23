@@ -18,6 +18,15 @@ ENV_CONFIG = {
     # },
 }
 
+
+# External scheduler configuration
+SCHEDULER_CONFIG = {
+    "max_concurrent_executions": 5,  # Max concurrent job executions
+    "job_visibility_timeout": 300,  # SQS visibility timeout in seconds
+    "job_wait_time_seconds": 5,  # SQS long polling wait time in seconds
+    "sequences_directory": "sequences",  # Directory with job sequences, only for testing
+}
+
 # Project prefix used for resource naming (keep short, lowercase, alphanumeric)
 PREFIX = "myproject"
 

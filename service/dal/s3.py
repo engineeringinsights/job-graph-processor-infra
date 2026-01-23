@@ -37,9 +37,7 @@ class ModelS3DataAccess(IModelDataAccess):
             resp = self.s3.get_object(Bucket=self.bucket, Key=key)
         except ClientError as e:
             # Translate not found to a Pythonic error
-            raise FileNotFoundError(
-                f"S3 object s3://{self.bucket}/{key} not found: {e}"
-            ) from e
+            raise FileNotFoundError(f"S3 object s3://{self.bucket}/{key} not found: {e}") from e
         body = resp["Body"].read()
         bio = io.BytesIO(body)
         bio.seek(0)
@@ -47,23 +45,17 @@ class ModelS3DataAccess(IModelDataAccess):
         return df
 
     def get_landing_model(self, airport_iata: str) -> pd.DataFrame:
-        key = self._key(
-            "landing_delay_models", str(self.model_id), f"{airport_iata}.parquet"
-        )
+        key = self._key("landing_delay_models", str(self.model_id), f"{airport_iata}.parquet")
         return self._get_parquet_df(key)
 
     def get_departure_model(self, airport_iata: str) -> pd.DataFrame:
-        key = self._key(
-            "departure_delay_models", str(self.model_id), f"{airport_iata}.parquet"
-        )
+        key = self._key("departure_delay_models", str(self.model_id), f"{airport_iata}.parquet")
         return self._get_parquet_df(key)
 
     def store_landing_model(self, delays: pd.DataFrame, airport_iata: str):
         """Store landing delay model DataFrame as parquet file on S3."""
         self._setup_client()
-        key = self._key(
-            "landing_delay_models", str(self.model_id), f"{airport_iata}.parquet"
-        )
+        key = self._key("landing_delay_models", str(self.model_id), f"{airport_iata}.parquet")
 
         # Convert DataFrame to parquet in memory
         buffer = io.BytesIO()
@@ -76,9 +68,7 @@ class ModelS3DataAccess(IModelDataAccess):
     def store_departure_model(self, delays: pd.DataFrame, airport_iata: str):
         """Store departure delay model DataFrame as parquet file on S3."""
         self._setup_client()
-        key = self._key(
-            "departure_delay_models", str(self.model_id), f"{airport_iata}.parquet"
-        )
+        key = self._key("departure_delay_models", str(self.model_id), f"{airport_iata}.parquet")
 
         # Convert DataFrame to parquet in memory
         buffer = io.BytesIO()

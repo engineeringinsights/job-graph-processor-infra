@@ -6,7 +6,6 @@ from service.models.aircraft_daily_sequence_dto import DailySequenceDto
 
 
 class IModelDataAccess(ABC):
-
     @abstractmethod
     def get_landing_model(self, airport_iata: str) -> pd.DataFrame:
         pass
@@ -25,7 +24,6 @@ class IModelDataAccess(ABC):
 
 
 class IDelayDataAccess(ABC):
-
     @abstractmethod
     def store_delays(self, delays: pd.DataFrame, code: str, sequence_id: int) -> str:
         pass
@@ -36,7 +34,6 @@ class IDelayDataAccess(ABC):
 
 
 class IPercentilesDataAccess(ABC):
-
     @abstractmethod
     def store_percentiles(self, sequence_id: int, percentile: dict):
         pass
@@ -47,7 +44,6 @@ class IPercentilesDataAccess(ABC):
 
 
 class ISequenceDataAccess(ABC):
-
     @abstractmethod
     def get_sequence(self, sequence_id: int) -> DailySequenceDto:
         pass
