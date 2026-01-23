@@ -40,7 +40,7 @@ OUTGOING_QUEUE_URL = os.environ["OUTGOING_QUEUE_URL"]
 TEST_RUN_ID = os.environ.get("TEST_RUN_ID", "default")
 
 # Initialize handlers
-s3_handler = S3Handler(BUCKET_NAME)
+#s3_handler = S3Handler(BUCKET_NAME)
 sqs_handler = SQSHandler(OUTGOING_QUEUE_URL)
 
 
@@ -108,7 +108,7 @@ def record_handler(record: SQSRecord) -> None:
 
     # Read job details from S3 if specified
     input_key = job_data.get("input_key")
-    input_data = s3_handler.read_json(input_key) if input_key else None
+    input_data = None #s3_handler.read_json(input_key) if input_key else None
 
     # Process the job
     result = process_job(job_data, input_data)
@@ -116,7 +116,7 @@ def record_handler(record: SQSRecord) -> None:
     # Write output to S3
     timestamp = datetime.now(UTC).strftime("%Y/%m/%d/%H")
     output_key = f"output/{timestamp}/{job_id}.json"
-    s3_handler.write_json(output_key, result)
+    #s3_handler.write_json(output_key, result)
 
     # Send completion notification to outgoing queue
     completion_message = {
