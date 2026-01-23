@@ -17,7 +17,6 @@ from typing import Any
 import boto3
 from aws_lambda_powertools import Logger
 
-from constants import SCHEDULER_CONFIG
 from service.models.aircraft_daily_sequence_dto import DailySequenceDto
 from service.models.job import AggregationJob, CompletedJob, ExecType, IncomingJob
 
@@ -39,8 +38,8 @@ class ExternalScheduler:
         self,
         incoming_queue_url: str,
         outgoing_queue_url: str,
-        sequences_dir: str = SCHEDULER_CONFIG["sequences_directory"],  # will be S3 later on
-        poll_interval: int = SCHEDULER_CONFIG["job_wait_time_seconds"],  # Use configured visibility timeout
+        sequences_dir: str = "sequences",
+        poll_interval: int = 5,
     ):
         """
         Initialize the scheduler.
@@ -63,7 +62,7 @@ class ExternalScheduler:
 
     def load_sequences(self) -> list[DailySequenceDto]:
         """Load all sequence definitions from JSON files."""
-        sequences = []
+        sequences: list[DailySequenceDto] = []
 
         if not self.sequences_dir.exists():
             logger.warning(f"Sequences directory not found: {self.sequences_dir}")

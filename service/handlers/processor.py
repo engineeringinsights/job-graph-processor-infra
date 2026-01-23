@@ -25,7 +25,7 @@ from aws_lambda_powertools.utilities.batch.types import PartialItemFailureRespon
 from aws_lambda_powertools.utilities.data_classes.sqs_event import SQSRecord
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
-from service.dal.dynamodb import DynamoDBHelper
+from service.dal.dynamodb import DynamoDBHandler
 from service.dal.s3 import S3Handler
 from service.dal.sqs import SQSHandler
 from service.models.job import CompletedJob, ExecType, IncomingJob
@@ -44,7 +44,7 @@ TEST_RUN_ID = os.environ.get("TEST_RUN_ID", "default")
 # Initialize handlers
 s3_handler = S3Handler(BUCKET_NAME)
 sqs_handler = SQSHandler(OUTGOING_QUEUE_URL)
-dynamodb_helper = DynamoDBHelper(TABLE_NAME)
+dynamodb_handler = DynamoDBHandler(TABLE_NAME)
 
 
 def get_s3_state_key(correlation_id: str) -> str:
@@ -237,7 +237,7 @@ def process_aggregation(
     }
 
     # Store in DynamoDB
-    dynamodb_helper.put_item(
+    dynamodb_handler.put_item(
         {
             "pk": f"SEQUENCE#{sequence_id}",
             "sk": f"CORRELATION#{correlation_id}",

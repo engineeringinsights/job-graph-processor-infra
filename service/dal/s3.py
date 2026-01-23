@@ -1,18 +1,84 @@
 import io
+import json
 
 import boto3
 import pandas as pd
+from aws_lambda_powertools import Logger, Tracer
 from botocore.exceptions import ClientError
 
 from service.dal.interface import (
     IModelDataAccess,
 )
 
+logger = Logger()
+tracer = Tracer()
+
 
 def _normalize_prefix(prefix: str) -> str:
     if not prefix:
         return ""
     return prefix.strip("/")
+
+
+class S3Handler:
+    """Handler for S3 operations with JSON data."""
+
+    def __init__(self, bucket_name: str) -> None:
+        """
+        Initialize S3 handler.
+
+        Args:
+            bucket_name: Name of the S3 bucket
+        """
+        self.bucket_name = bucket_name
+        self.s3 = boto3.client("s3")
+
+    @tracer.capture_method
+    def read_json(self, key: str) -> dict | None:
+        """
+        Read JSON data from S3.
+
+        Args:
+            key: S3 object key
+
+        Returns:
+            Parsed JSON data or None if not found
+        """
+        try:
+            response = self.s3.get_object(Bucket=self.bucket_name, Key=key)
+            content = response["Body"].read().decode("utf-8")
+            data: dict = json.loads(content)
+            logger.debug("Read JSON from S3", extra={"bucket": self.bucket_name, "key": key})
+            return data
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchKey":
+                logger.debug("S3 object not found", extra={"bucket": self.bucket_name, "key": key})
+                return None
+            logger.error(
+                f"Error reading from S3: {e}",
+                extra={"bucket": self.bucket_name, "key": key},
+            )
+            raise
+
+    @tracer.capture_method
+    def write_json(self, key: str, data: dict) -> None:
+        """
+        Write JSON data to S3.
+
+        Args:
+            key: S3 object key
+            data: Data to write as JSON
+        """
+        try:
+            json_str = json.dumps(data, indent=2, default=str)
+            self.s3.put_object(Bucket=self.bucket_name, Key=key, Body=json_str.encode("utf-8"))
+            logger.debug("Wrote JSON to S3", extra={"bucket": self.bucket_name, "key": key})
+        except Exception as e:
+            logger.error(
+                f"Error writing to S3: {e}",
+                extra={"bucket": self.bucket_name, "key": key},
+            )
+            raise
 
 
 class ModelS3DataAccess(IModelDataAccess):

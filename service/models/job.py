@@ -40,8 +40,8 @@ class CompletedJob(BaseModel):
     route_index: int
     status: str = Field(..., description="Status: success or error")
     processing_time_ms: float = Field(..., description="Time taken to process in milliseconds")
-    result_s3_key: str | None = Field(None, description="S3 key where results are stored")
-    error_message: str | None = Field(None, description="Error message if status is error")
+    result_s3_key: str | None = Field(default=None, description="S3 key where results are stored")
+    error_message: str | None = Field(default=None, description="Error message if status is error")
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
