@@ -6,7 +6,7 @@ TEST_RUN_ID ?= default
 poetryVersion := $(shell cat .github/workflows/.poetry-version)
 
 # Bootstrap the project
-# Prerequisites: Activate your Python environment first (e.g., micromamba activate py313)
+# Prerequisites: Activate your Python environment first (e.g., micromamba activate py312)
 # This uses in-project virtualenvs so each repo has isolated dependencies in .venv/
 # Workflow: micromamba manages Python version, Poetry manages per-project deps
 .PHONY: bootstrap

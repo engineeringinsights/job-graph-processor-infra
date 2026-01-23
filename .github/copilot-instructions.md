@@ -30,7 +30,7 @@ PREFIX = "myproject"  # Keep short, lowercase, alphanumeric
 
 ### Bootstrap (One-time per environment)
 ```bash
-micromamba activate py313  # Python environment management via micromamba
+micromamba activate py312  # Python environment management via micromamba
 make bootstrap             # Installs Poetry, CDK, pre-commit, deps
 ```
 

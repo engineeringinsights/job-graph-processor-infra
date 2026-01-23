@@ -35,7 +35,7 @@ ENV_CONFIG = {
 
 ```bash
 # Activate Python environment
-micromamba activate py313
+micromamba activate py312
 
 # Install dependencies
 make bootstrap

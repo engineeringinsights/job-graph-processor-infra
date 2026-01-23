@@ -361,7 +361,7 @@ class Scenario1Stack(Stack):
             [
                 {
                     "id": "AwsSolutions-L1",
-                    "reason": "Using Python 3.13 which is the latest supported runtime",
+                    "reason": "Using Python 3.12 which is the latest stable supported runtime",
                 }
             ],
         )
