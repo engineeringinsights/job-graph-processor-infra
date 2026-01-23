@@ -16,6 +16,7 @@ boto3 = "^1.35.0"
 pandas = "^2.2.0"
 
 # Dev/CDK dependencies - not deployed to Lambda
+pydantic = "^2.12.5"
 [tool.poetry.group.dev.dependencies]
 aws-cdk-lib = "^2.164.0"
 aws-cdk-aws-lambda-python-alpha = "^2.164.0a0"
