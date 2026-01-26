@@ -1,22 +1,12 @@
-"""
-External Scheduler for job graph processing.
-
-Coordinates the execution of job sequences by:
-1. Reading sequence definitions from JSON files
-2. Sending jobs to the incoming queue based on dependencies
-3. Monitoring the outgoing queue for completed jobs
-4. Triggering next jobs in the sequence when dependencies are met
-"""
-
 import json
 import time
 import uuid
 from pathlib import Path
 from typing import Any
 
-import boto3
 from aws_lambda_powertools import Logger
 
+from service.dal.sqs_jobs import SqsJobsDataAccess
 from service.models.aircraft_daily_sequence_dto import DailySequenceDto
 from service.models.job import AggregationJob, CompletedJob, ExecType, IncomingJob
 
@@ -24,44 +14,20 @@ logger = Logger(service="ExternalScheduler")
 
 
 class ExternalScheduler:
-    """
-    External scheduler that orchestrates job graph execution.
-
-    Manages the flow of jobs through the system:
-    - Sends initial jobs to incoming queue
-    - Polls outgoing queue for completed jobs
-    - Determines next jobs to run based on completion status
-    - Handles aggregation and final notifications
-    """
-
     def __init__(
         self,
-        incoming_queue_url: str,
-        outgoing_queue_url: str,
+        sqs_data_access: SqsJobsDataAccess,
         sequences_dir: str = "sequences",
         poll_interval: int = 5,
     ):
-        """
-        Initialize the scheduler.
-
-        Args:
-            incoming_queue_url: URL of the SQS queue for jobs to process
-            outgoing_queue_url: URL of the SQS queue for completed jobs
-            sequences_dir: Directory containing sequence JSON files
-            poll_interval: Seconds to wait between polling outgoing queue
-        """
-        self.incoming_queue_url = incoming_queue_url
-        self.outgoing_queue_url = outgoing_queue_url
+        self.sqs_data_access = sqs_data_access
         self.sequences_dir = Path(sequences_dir)
         self.poll_interval = poll_interval
-
-        self.sqs = boto3.client("sqs")
 
         # Track active sequences: correlation_id -> sequence state
         self.active_sequences: dict[str, dict[str, Any]] = {}
 
     def load_sequences(self) -> list[DailySequenceDto]:
-        """Load all sequence definitions from JSON files."""
         sequences: list[DailySequenceDto] = []
 
         if not self.sequences_dir.exists():
@@ -81,15 +47,6 @@ class ExternalScheduler:
         return sequences
 
     def start_sequence(self, sequence: DailySequenceDto) -> str:
-        """
-        Start processing a sequence by sending the first job.
-
-        Args:
-            sequence: The sequence to process
-
-        Returns:
-            correlation_id for tracking this sequence execution
-        """
         correlation_id = str(uuid.uuid4())
 
         # Initialize sequence state
@@ -134,7 +91,6 @@ class ExternalScheduler:
         home_airport_iata: str,
         total_routes: int,
     ) -> None:
-        """Send a job to the incoming queue."""
         job = IncomingJob(
             correlation_id=correlation_id,
             sequence_id=sequence_id,
@@ -145,10 +101,7 @@ class ExternalScheduler:
             total_routes=total_routes,
         )
 
-        self.sqs.send_message(
-            QueueUrl=self.incoming_queue_url,
-            MessageBody=job.model_dump_json(),
-        )
+        self.sqs_data_access.add_todo_job(job)
 
         logger.info(
             "Sent job to incoming queue",
@@ -166,7 +119,6 @@ class ExternalScheduler:
         total_routes: int,
         home_airport_iata: str,
     ) -> None:
-        """Send an aggregation job to the incoming queue."""
         agg_job = AggregationJob(
             correlation_id=correlation_id,
             sequence_id=sequence_id,
@@ -174,10 +126,18 @@ class ExternalScheduler:
             home_airport_iata=home_airport_iata,
         )
 
-        self.sqs.send_message(
-            QueueUrl=self.incoming_queue_url,
-            MessageBody=agg_job.model_dump_json(),
+        # Create IncomingJob from AggregationJob for consistent interface
+        incoming_job = IncomingJob(
+            correlation_id=agg_job.correlation_id,
+            sequence_id=agg_job.sequence_id,
+            exec_type=agg_job.exec_type,
+            route_index=-1,  # N/A for aggregation
+            route_data={},  # No route data for aggregation
+            home_airport_iata=agg_job.home_airport_iata,
+            total_routes=agg_job.total_routes,
         )
+
+        self.sqs_data_access.add_todo_job(incoming_job)
 
         logger.info(
             "Sent aggregation job",
@@ -185,12 +145,6 @@ class ExternalScheduler:
         )
 
     def process_completed_job(self, completed_job: CompletedJob) -> None:
-        """
-        Process a completed job and determine next action.
-
-        Args:
-            completed_job: The completed job from outgoing queue
-        """
         correlation_id = completed_job.correlation_id
 
         if correlation_id not in self.active_sequences:
@@ -272,28 +226,22 @@ class ExternalScheduler:
             logger.info(f"Sequence {sequence_state['sequence_id']} orchestration complete")
 
     def poll_outgoing_queue(self) -> None:
-        """Poll the outgoing queue for completed jobs."""
         try:
-            response = self.sqs.receive_message(
-                QueueUrl=self.outgoing_queue_url,
-                MaxNumberOfMessages=10,
-                WaitTimeSeconds=20,  # Long polling
-                MessageAttributeNames=["All"],
+            messages = self.sqs_data_access.read_completed_job(
+                max_messages=10,
+                wait_time_seconds=20,
             )
-
-            messages = response.get("Messages", [])
 
             for message in messages:
                 try:
-                    body = json.loads(message["Body"])
-                    completed_job = CompletedJob(**body)
+                    completed_job = CompletedJob(**json.loads(message["Body"]))
 
                     self.process_completed_job(completed_job)
 
                     # Delete message after successful processing
-                    self.sqs.delete_message(
-                        QueueUrl=self.outgoing_queue_url,
-                        ReceiptHandle=message["ReceiptHandle"],
+                    self.sqs_data_access.delete_message(
+                        queue_url=self.sqs_data_access.outgoing_queue_url,
+                        receipt_handle=message["ReceiptHandle"],
                     )
 
                 except Exception as e:
@@ -304,12 +252,6 @@ class ExternalScheduler:
             logger.error(f"Error polling outgoing queue: {e}", exc_info=True)
 
     def run(self, max_iterations: int | None = None) -> None:
-        """
-        Run the scheduler.
-
-        Args:
-            max_iterations: Maximum number of poll iterations (None = infinite)
-        """
         # Load and start all sequences
         sequences = self.load_sequences()
 

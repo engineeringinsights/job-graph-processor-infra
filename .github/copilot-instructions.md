@@ -71,6 +71,10 @@ SQS_BATCH_SIZE = 10  # Messages per Lambda invocation
 
 ## Service Handler Pattern
 
+**Coding instructions**
+- Do not generate the comments for the python files, but leave the manually added comments as is.
+- Other comments should be limited to docstrings and necessary explanations only as one-liner, like inputs, outputs, and function purposes.
+
 **Location**: `service/handlers/processor.py`
 
 **AWS Lambda Powertools Integration**:
@@ -122,7 +126,7 @@ Example sequence JSON:
 
 **Job Models** (`service/models/job.py`):
 - `IncomingJob`: Contains `correlation_id`, `exec_type` (FIRST/INTERMEDIATE/LAST/AGGREGATION), `route_data`, `route_index`
-- `CompletedJob`: Contains status, processing time, `result_s3_key`, `error_message`
+- `CompletedJob`: Contains status, processing time, `error_message`
 - `ExecType`: Enum defining execution stages in the workflow
 
 **S3 State Management**:

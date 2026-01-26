@@ -119,7 +119,6 @@ class ModelS3DataAccess(IModelDataAccess):
         return self._get_parquet_df(key)
 
     def store_landing_model(self, delays: pd.DataFrame, airport_iata: str):
-        """Store landing delay model DataFrame as parquet file on S3."""
         self._setup_client()
         key = self._key("landing_delay_models", str(self.model_id), f"{airport_iata}.parquet")
 
@@ -132,7 +131,6 @@ class ModelS3DataAccess(IModelDataAccess):
         self.s3.put_object(Bucket=self.bucket, Key=key, Body=buffer.getvalue())
 
     def store_departure_model(self, delays: pd.DataFrame, airport_iata: str):
-        """Store departure delay model DataFrame as parquet file on S3."""
         self._setup_client()
         key = self._key("departure_delay_models", str(self.model_id), f"{airport_iata}.parquet")
 

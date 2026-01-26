@@ -1,13 +1,3 @@
-"""
-Lambda handler for job graph processor.
-
-Processes jobs from incoming queue based on execution type:
-- FIRST: Process first airport in sequence, initialize S3 state
-- INTERMEDIATE: Process intermediate airport, update S3 state
-- LAST: Process last airport, finalize S3 state
-- AGGREGATION: Aggregate all results and store in DynamoDB
-"""
-
 import json
 import os
 import time
@@ -26,7 +16,6 @@ from aws_lambda_powertools.utilities.data_classes.sqs_event import SQSRecord
 from aws_lambda_powertools.utilities.typing import LambdaContext
 
 from service.dal.dynamodb import DynamoDBHandler
-from service.dal.s3 import S3Handler
 from service.dal.sqs import SQSHandler
 from service.models.job import CompletedJob, ExecType, IncomingJob
 
@@ -42,31 +31,20 @@ OUTGOING_QUEUE_URL = os.environ["OUTGOING_QUEUE_URL"]
 TEST_RUN_ID = os.environ.get("TEST_RUN_ID", "default")
 
 # Initialize handlers
-s3_handler = S3Handler(BUCKET_NAME)
+# s3_handler = S3Handler(BUCKET_NAME)
 sqs_handler = SQSHandler(OUTGOING_QUEUE_URL)
 dynamodb_handler = DynamoDBHandler(TABLE_NAME)
 
 
-def get_s3_state_key(correlation_id: str) -> str:
-    """Generate S3 key for storing sequence state."""
-    return f"state/{correlation_id}/route_results.json"
+# def get_s3_state_key(correlation_id: str) -> str:
+#     """Generate S3 key for storing sequence state."""
+#     return f"state/{correlation_id}/route_results.json"
 
 
 @tracer.capture_method
 def process_first_airport(
     job: IncomingJob,
 ) -> dict[str, Any]:
-    """
-    Process the first airport in a sequence.
-
-    Initializes the state and processes the first route.
-
-    Args:
-        job: The incoming job with route data
-
-    Returns:
-        Processing results
-    """
     logger.info(
         "Processing first airport",
         extra={
@@ -102,18 +80,6 @@ def process_intermediate_airport(
     job: IncomingJob,
     previous_state: dict[str, Any],
 ) -> dict[str, Any]:
-    """
-    Process an intermediate airport in a sequence.
-
-    Updates the state with the new route result.
-
-    Args:
-        job: The incoming job with route data
-        previous_state: Previous state from S3
-
-    Returns:
-        Updated processing results
-    """
     logger.info(
         "Processing intermediate airport",
         extra={
@@ -143,18 +109,6 @@ def process_last_airport(
     job: IncomingJob,
     previous_state: dict[str, Any],
 ) -> dict[str, Any]:
-    """
-    Process the last airport in a sequence.
-
-    Finalizes the state with the last route result.
-
-    Args:
-        job: The incoming job with route data
-        previous_state: Previous state from S3
-
-    Returns:
-        Final processing results
-    """
     logger.info(
         "Processing last airport",
         extra={
@@ -195,27 +149,14 @@ def process_aggregation(
     correlation_id: str,
     sequence_id: int,
 ) -> dict[str, Any]:
-    """
-    Process aggregation of all route results.
-
-    Reads all route results from S3, performs aggregation,
-    and stores metadata in DynamoDB.
-
-    Args:
-        correlation_id: Correlation ID for the sequence
-        sequence_id: Sequence ID
-
-    Returns:
-        Aggregation results
-    """
     logger.info(
         "Processing aggregation",
         extra={"correlation_id": correlation_id, "sequence_id": sequence_id},
     )
 
-    # Read final state from S3
-    state_key = get_s3_state_key(correlation_id)
-    state = s3_handler.read_json(state_key)
+    # Redo this logic to SQS instead of S3
+    # state_key = get_s3_state_key(correlation_id)
+    state = None
 
     if not state:
         raise ValueError(f"No state found for correlation_id: {correlation_id}")
@@ -259,14 +200,6 @@ def process_aggregation(
 
 @tracer.capture_method
 def record_handler(record: SQSRecord) -> None:
-    """
-    Process a single SQS record (job from incoming queue).
-
-    Handles different execution types: FIRST, INTERMEDIATE, LAST, AGGREGATION
-
-    Args:
-        record: SQS record containing job to process
-    """
     start_time = time.perf_counter()
 
     # Parse message body
@@ -298,7 +231,7 @@ def record_handler(record: SQSRecord) -> None:
             # timestamp = datetime.now(UTC).strftime("%Y/%m/%d/%H")
             # output_key = f"output/{timestamp}/{job_id}.json"
             # s3_handler.write_json(output_key, result)
-            result = process_aggregation(correlation_id, sequence_id)
+            process_aggregation(correlation_id, sequence_id)
 
             # Send completion notification
             completed_job = CompletedJob(
@@ -308,7 +241,6 @@ def record_handler(record: SQSRecord) -> None:
                 route_index=-1,  # N/A for aggregation
                 status="success",
                 processing_time_ms=(time.perf_counter() - start_time) * 1000,
-                result_s3_key=None,  # Stored in DynamoDB instead
             )
 
         else:
@@ -325,32 +257,32 @@ def record_handler(record: SQSRecord) -> None:
             )
 
             # Get S3 state key
-            state_key = get_s3_state_key(job.correlation_id)
+            # state_key = get_s3_state_key(job.correlation_id)
 
             # Process based on exec_type
             if job.exec_type == ExecType.FIRST:
                 # No previous state needed
-                result = process_first_airport(job)
+                process_first_airport(job)
 
             elif job.exec_type == ExecType.INTERMEDIATE:
                 # Read previous state
-                previous_state = s3_handler.read_json(state_key)
+                previous_state = None
                 if not previous_state:
                     raise ValueError(f"No previous state found for correlation_id: {job.correlation_id}")
-                result = process_intermediate_airport(job, previous_state)
+                process_intermediate_airport(job, previous_state)
 
             elif job.exec_type == ExecType.LAST:
                 # Read previous state
-                previous_state = s3_handler.read_json(state_key)
+                previous_state = None
                 if not previous_state:
                     raise ValueError(f"No previous state found for correlation_id: {job.correlation_id}")
-                result = process_last_airport(job, previous_state)
+                process_last_airport(job, previous_state)
 
             else:
                 raise ValueError(f"Unknown exec_type: {job.exec_type}")
 
             # Write updated state to S3
-            s3_handler.write_json(state_key, result)
+            # s3_handler.write_json(state_key, result)
 
             # Send completion notification
             completed_job = CompletedJob(
@@ -360,7 +292,6 @@ def record_handler(record: SQSRecord) -> None:
                 route_index=job.route_index,
                 status="success",
                 processing_time_ms=(time.perf_counter() - start_time) * 1000,
-                result_s3_key=state_key,
             )
 
         # Send to outgoing queue
@@ -395,7 +326,6 @@ def record_handler(record: SQSRecord) -> None:
             route_index=job_data.get("route_index", -1),
             status="error",
             processing_time_ms=(time.perf_counter() - start_time) * 1000,
-            result_s3_key=None,
             error_message=str(e),
         )
 
@@ -407,18 +337,6 @@ def record_handler(record: SQSRecord) -> None:
 @tracer.capture_lambda_handler
 @metrics.log_metrics(capture_cold_start_metric=True)
 def handler(event: dict[str, Any], context: LambdaContext) -> PartialItemFailureResponse:
-    """
-    Lambda handler for processing SQS messages.
-
-    Uses batch processing with partial failure support.
-
-    Args:
-        event: SQS event containing batch of messages
-        context: Lambda context
-
-    Returns:
-        Partial batch response indicating failed items
-    """
     # Add test run dimension to all metrics for cost/perf tracking
     metrics.add_dimension(name="TestRunId", value=TEST_RUN_ID)
 

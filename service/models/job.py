@@ -1,7 +1,3 @@
-"""
-Job models for the graph processing workflow.
-"""
-
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -19,8 +15,6 @@ class ExecType(str, Enum):
 
 
 class IncomingJob(BaseModel):
-    """Job sent to the incoming queue for processing."""
-
     correlation_id: str = Field(..., description="Unique ID linking all jobs in a sequence")
     sequence_id: int = Field(..., description="ID of the sequence this job belongs to")
     exec_type: ExecType = Field(..., description="Type of execution: first, intermediate, last, or aggregation")
@@ -32,22 +26,17 @@ class IncomingJob(BaseModel):
 
 
 class CompletedJob(BaseModel):
-    """Job sent to the outgoing queue after processing."""
-
     correlation_id: str
     sequence_id: int
     exec_type: ExecType
     route_index: int
     status: str = Field(..., description="Status: success or error")
     processing_time_ms: float = Field(..., description="Time taken to process in milliseconds")
-    result_s3_key: str | None = Field(default=None, description="S3 key where results are stored")
     error_message: str | None = Field(default=None, description="Error message if status is error")
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
 class AggregationJob(BaseModel):
-    """Special job for final aggregation of all route results."""
-
     correlation_id: str
     sequence_id: int
     exec_type: ExecType = Field(default=ExecType.AGGREGATION)

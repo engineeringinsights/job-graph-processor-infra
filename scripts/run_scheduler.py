@@ -1,36 +1,14 @@
-"""
-Run the External Scheduler for job graph processing.
-
-This script:
-1. Loads sequence definitions from the sequences/ directory
-2. Starts the ExternalScheduler
-3. Monitors job completion and orchestrates the workflow
-
-Usage:
-    python scripts/run_scheduler.py --env dev
-    python scripts/run_scheduler.py --env dev --sequences-dir ./sequences
-    python scripts/run_scheduler.py --env dev --max-iterations 100
-"""
-
 import argparse
 import logging
 import sys
 
 import boto3
 
+from service.dal.sqs_jobs import SqsJobsDataAccess
 from service.scheduler.external_scheduler import ExternalScheduler
 
 
 def get_queue_urls(env: str) -> tuple[str, str]:
-    """
-    Get incoming and outgoing queue URLs from CloudFormation outputs.
-
-    Args:
-        env: Environment name (dev, prod, etc.)
-
-    Returns:
-        Tuple of (incoming_queue_url, outgoing_queue_url)
-    """
     cf_client = boto3.client("cloudformation")
     stack_name = f"scenario-1-{env}"
 
@@ -59,7 +37,6 @@ def get_queue_urls(env: str) -> tuple[str, str]:
 
 
 def main():
-    """Main entry point."""
     parser = argparse.ArgumentParser(description="Run External Scheduler for job graph processing")
     parser.add_argument(
         "--env",
@@ -76,6 +53,7 @@ def main():
     parser.add_argument(
         "--poll-interval",
         type=int,
+        # TODO: Lambda uses internal pollers that use long polling to check the SQS queue.
         default=5,
         help="Seconds between polling outgoing queue",
     )
@@ -115,10 +93,15 @@ def main():
     print(f"Outgoing queue: {outgoing_url}")
     print()
 
-    # Create and run scheduler
-    scheduler = ExternalScheduler(
+    # Create SQS data access layer
+    sqs_data_access = SqsJobsDataAccess(
         incoming_queue_url=incoming_url,
         outgoing_queue_url=outgoing_url,
+    )
+
+    # Create and run scheduler
+    scheduler = ExternalScheduler(
+        sqs_data_access=sqs_data_access,
         sequences_dir=args.sequences_dir,
         poll_interval=args.poll_interval,
     )
