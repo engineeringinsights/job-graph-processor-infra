@@ -1,12 +1,25 @@
+import os
 from typing import Any
 
 import boto3
-from aws_lambda_powertools import Logger, Tracer
+from aws_lambda_powertools import Logger
 
 from service.models.job import CompletedJob, IncomingJob
 
 logger = Logger()
-tracer = Tracer()
+
+# Initialize tracer with fallback for testing without aws-xray-sdk
+try:
+    from aws_lambda_powertools import Tracer
+
+    tracer = Tracer(disabled=os.getenv("POWERTOOLS_TRACE_DISABLED", "false").lower() == "true")
+except ImportError:
+    # Create a no-op tracer for testing
+    class NoOpTracer:
+        def capture_method(self, func=None):
+            return func if func else lambda f: f
+
+    tracer = NoOpTracer()
 
 
 class SqsJobsDataAccess:
