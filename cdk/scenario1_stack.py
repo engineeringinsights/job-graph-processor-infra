@@ -63,9 +63,7 @@ class Scenario1Stack(Stack):
         self.outgoing_queue = self._create_outgoing_queue()
         self.layer = self._create_layer()
         self.lambda_role = self._create_lambda_role()
-        self.processor_function = self._create_processor_lambda(
-            lambda_memory_size, lambda_timeout, batch_size
-        )
+        self.processor_function = self._create_processor_lambda(lambda_memory_size, lambda_timeout, batch_size)
 
         # Outputs
         self._create_outputs()
@@ -171,9 +169,7 @@ class Scenario1Stack(Stack):
             "LambdaRole",
             assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
             managed_policies=[
-                iam.ManagedPolicy.from_aws_managed_policy_name(
-                    f"service-role/{constants.LAMBDA_BASIC_EXECUTION_ROLE}"
-                )
+                iam.ManagedPolicy.from_aws_managed_policy_name(f"service-role/{constants.LAMBDA_BASIC_EXECUTION_ROLE}")
             ],
         )
 
@@ -189,11 +185,7 @@ class Scenario1Stack(Stack):
                 effect=iam.Effect.ALLOW,
                 actions=["cloudwatch:PutMetricData"],
                 resources=["*"],
-                conditions={
-                    "StringEquals": {
-                        "cloudwatch:namespace": constants.METRICS_NAMESPACE
-                    }
-                },
+                conditions={"StringEquals": {"cloudwatch:namespace": constants.METRICS_NAMESPACE}},
             )
         )
 
@@ -304,9 +296,7 @@ class Scenario1Stack(Stack):
             value=self.table.table_arn,
             description="DynamoDB table ARN",
         )
-        CfnOutput(
-            self, "ProcessorFunctionName", value=self.processor_function.function_name
-        )
+        CfnOutput(self, "ProcessorFunctionName", value=self.processor_function.function_name)
         CfnOutput(
             self,
             "TestRunId",
@@ -361,7 +351,7 @@ class Scenario1Stack(Stack):
             [
                 {
                     "id": "AwsSolutions-L1",
-                    "reason": "Using Python 3.13 which is the latest supported runtime",
+                    "reason": "Using Python 3.12 which is the latest stable supported runtime",
                 }
             ],
         )

@@ -20,9 +20,7 @@ class SQSHandler:
         self.client = boto3.client("sqs")
 
     @tracer.capture_method
-    def send_message(
-        self, message: dict[str, Any], message_group_id: str | None = None
-    ) -> str:
+    def send_message(self, message: dict[str, Any], message_group_id: str | None = None) -> str:
         """
         Send a message to the SQS queue.
 

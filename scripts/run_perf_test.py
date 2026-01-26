@@ -29,7 +29,8 @@ def get_queue_url(env: str) -> str:
 
         for output in outputs:
             if output["OutputKey"] == "IncomingQueueUrl":
-                return output["OutputValue"]
+                queue_url: str = output["OutputValue"]
+                return queue_url
 
         raise ValueError(f"IncomingQueueUrl output not found in stack {stack_name}")
     except cf_client.exceptions.ClientError:

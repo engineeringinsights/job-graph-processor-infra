@@ -6,7 +6,7 @@ TEST_RUN_ID ?= default
 poetryVersion := $(shell cat .github/workflows/.poetry-version)
 
 # Bootstrap the project
-# Prerequisites: Activate your Python environment first (e.g., micromamba activate py313)
+# Prerequisites: Activate your Python environment first (e.g., micromamba activate py312)
 # This uses in-project virtualenvs so each repo has isolated dependencies in .venv/
 # Workflow: micromamba manages Python version, Poetry manages per-project deps
 .PHONY: bootstrap
@@ -98,6 +98,11 @@ test-unit:
 run:
 	poetry run python scripts/run_perf_test.py --messages $(MESSAGES) --env $(ENV)
 
+# Run the External Scheduler (job graph workflow)
+.PHONY: run-scheduler
+run-scheduler:
+	poetry run python scripts/run_scheduler.py --env $(ENV)
+
 # Show help
 .PHONY: help
 help:
@@ -107,6 +112,7 @@ help:
 	@echo "  make deploy                        - Deploy stack"
 	@echo "  make destroy                       - Destroy stack"
 	@echo "  make run MESSAGES=100              - Run perf test with N messages"
+	@echo "  make run-scheduler                 - Run job graph scheduler"
 	@echo ""
 	@echo "Environment Variables:"
 	@echo "  ENV=dev|prod                       - Target environment (default: dev)"
@@ -116,4 +122,5 @@ help:
 	@echo "  1. Deploy once:  make deploy ENV=dev"
 	@echo "  2. Tag test run: TEST_RUN_ID=test-001 make deploy ENV=dev"
 	@echo "  3. Run test:     make run MESSAGES=1000 ENV=dev"
-	@echo "  4. View costs in AWS Cost Explorer filtered by PerfTestRun tag"
+	@echo "  4. Or run graph: make run-scheduler ENV=dev"
+	@echo "  5. View costs in AWS Cost Explorer filtered by PerfTestRun tag"
