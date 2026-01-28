@@ -399,7 +399,7 @@ class Scenario2Stack(Stack):
                 },
                 {
                     "id": "AwsSolutions-VPC7",
-                    "reason": "VPC flow logs are enabled in the shared VPC stack",
+                    "reason": "VPC Flow Logs not needed for performance testing infrastructure",
                 },
                 {
                     "id": "AwsSolutions-EC23",
