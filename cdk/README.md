@@ -11,7 +11,7 @@ This module provides infrastructure for performance testing a **job graph proces
 | Scenario | Stack Name | Description |
 |----------|------------|-------------|
 | **Scenario 1** | `scenario-1-{env}` | SQS → Lambda → S3 (serverless, event-driven) |
-| Scenario 2 | `scenario-2-{env}` | SQS → ECS → S3 (container-based) - *coming soon* |
+| **Scenario 2** | `scenario-2-{env}` | SQS → ECS Fargate → S3 (container-based) |
 | Scenario 3 | `scenario-3-{env}` | Step Functions orchestration - *coming soon* |
 
 ## Scenario 1 Architecture (Lambda + S3)
@@ -57,7 +57,65 @@ This module provides infrastructure for performance testing a **job graph proces
 | DLQ | `scenario-1-{env}-dlq` | Failed jobs |
 | Lambda | `scenario-1-{env}-processor` | Processes jobs |
 | S3 Bucket | `scenario-1-{env}-data-{account}` | Job details storage |
-| DynamoDB Table | `scenario-1-{env}-jobs` | Job metadata (accessible by Lambda and scheduler) |
+| DynamoDB Table | `scenario-1-{env}-jobs` | Job metadata |
+
+## Scenario 2 Architecture (ECS Fargate + S3)
+
+```
+┌────────────────────┐
+│  External          │
+│  Scheduler         │◄───────────────────────────────────┐
+│  (feeds jobs based │                                    │
+│   on dependencies) │                                    │
+└────────┬───────────┘                                    │
+         │                                                │
+         ▼                                                │
+┌─────────────────┐     ┌─────────────────┐     ┌─────────┴───────┐
+│    Incoming     │────▶│  ECS Fargate    │────▶│    Outgoing     │
+│     Queue       │     │   (polling)     │     │     Queue       │
+│  (jobs to run)  │     │                 │     │ (completed jobs)│
+└─────────────────┘     └────────┬────────┘     └─────────────────┘
+                                 │
+                        ┌────────┴────────┐
+                        ▼                 ▼
+               ┌─────────────┐    ┌─────────────┐
+               │     S3      │    │  DynamoDB   │
+               │(job details)│    │(job metadata)│
+               └─────────────┘    └─────────────┘
+```
+
+### Key Differences from Scenario 1
+
+| Aspect | Scenario 1 (Lambda) | Scenario 2 (ECS Fargate) |
+|--------|---------------------|--------------------------|
+| **Triggering** | Event-driven (SQS triggers Lambda) | Polling (container polls SQS) |
+| **Scaling** | Automatic (Lambda concurrency) | Manual (`make scale-up/down`) |
+| **Idle behavior** | No cost when idle | Runs until manual scale-down |
+| **Cold start** | ~100-500ms | ~30-60s (container startup) |
+| **Max runtime** | 15 minutes | Unlimited |
+| **VPC** | Optional | Required (public subnet) |
+
+### Flow
+
+1. **Scale up** the ECS service: `make scale-up DESIRED_COUNT=2 ENV=dev`
+2. **Fargate tasks** start and poll the **Incoming Queue**
+3. Tasks process messages, write to **S3**, send completion to **Outgoing Queue**
+4. **Scale down** when done: `make scale-down ENV=dev`
+
+### Resources Created
+
+| Resource | Name | Purpose |
+|----------|------|---------|
+| VPC | `perf-shared-{env}-vpc` | Public subnets only (no NAT) |
+| ECS Cluster | `scenario-2-{env}-cluster` | Fargate cluster |
+| ECS Service | `scenario-2-{env}-service` | Service with desired_count=0 |
+| Task Definition | `scenario-2-{env}-processor` | Container config |
+| ECR Image | (auto-built by CDK) | Docker image from `docker/Dockerfile` |
+| Incoming Queue | `scenario-2-{env}-incoming` | Jobs waiting to be processed |
+| Outgoing Queue | `scenario-2-{env}-outgoing` | Completed job notifications |
+| DLQ | `scenario-2-{env}-dlq` | Failed jobs |
+| S3 Bucket | `scenario-2-{env}-data-{account}` | Job details storage |
+| DynamoDB Table | `scenario-2-{env}-jobs` | Job metadata |
 
 ## Cost Tracking with Tags
 
@@ -100,7 +158,7 @@ make bootstrap
 aws sts get-caller-identity
 ```
 
-### Deploy Infrastructure
+### Scenario 1: Deploy Lambda Infrastructure
 
 ```bash
 # Deploy with default tag
@@ -108,23 +166,34 @@ make deploy ENV=dev
 
 # Deploy with custom test run ID (for cost tracking)
 TEST_RUN_ID=baseline-001 make deploy ENV=dev
-```
 
-### Run Performance Tests
-
-```bash
-# Send 100 messages (default)
-make run MESSAGES=100 ENV=dev
-
-# Send 1000 messages
+# Run performance test
 make run MESSAGES=1000 ENV=dev
 
-# Advanced: customize workload
-poetry run python scripts/run_perf_test.py \
-    --messages 1000 \
-    --work-duration-ms 200 \
-    --data-size-kb 50 \
-    --env dev
+# Destroy when done
+make destroy ENV=dev
+```
+
+### Scenario 2: Deploy ECS Fargate Infrastructure
+
+```bash
+# Deploy VPC + ECS stack
+make deploy-ecs ENV=dev
+
+# Scale up to start processing (starts with 0 tasks)
+make scale-up DESIRED_COUNT=2 ENV=dev
+
+# Check service status
+make ecs-status ENV=dev
+
+# Run performance test
+make run-ecs MESSAGES=1000 ENV=dev
+
+# Scale down when done
+make scale-down ENV=dev
+
+# Destroy when done
+make destroy-ecs ENV=dev
 ```
 
 ### Monitor Results
@@ -176,7 +245,7 @@ The external scheduler reads these completion messages to determine which depend
 
 ## Configuration
 
-### Lambda Settings
+### Lambda Settings (Scenario 1)
 
 Edit `cdk/constants.py`:
 
@@ -184,6 +253,15 @@ Edit `cdk/constants.py`:
 PERF_LAMBDA_MEMORY_SIZE = 256          # MB
 PERF_LAMBDA_TIMEOUT = 60               # seconds
 SQS_BATCH_SIZE = 10                    # Messages per Lambda invocation
+```
+
+### ECS Fargate Settings (Scenario 2)
+
+Edit `cdk/constants.py`:
+
+```python
+ECS_CPU = 256                          # 0.25 vCPU (256, 512, 1024, 2048, 4096)
+ECS_MEMORY = 512                       # MB (must match CPU)
 ```
 
 ### Stack Parameters
@@ -201,6 +279,18 @@ Scenario1Stack(
     batch_size=5,                # Override batch size
     env=environment,
 )
+
+Scenario2Stack(
+    app,
+    "scenario-2-dev",
+    stage="dev",
+    vpc=vpc_stack.vpc,
+    test_run_id="my-test",
+    cpu=512,                     # Override CPU
+    memory=1024,                 # Override memory
+    desired_count=0,             # Start with 0 tasks
+    env=environment,
+)
 ```
 
 ## File Structure
@@ -209,19 +299,27 @@ Scenario1Stack(
 cdk/                             # CDK infrastructure
 ├── __init__.py
 ├── constants.py                 # Configuration constants
-├── scenario1_stack.py           # Scenario 1 stack definition
+├── scenario1_stack.py           # Scenario 1: Lambda + S3
+├── scenario2_stack.py           # Scenario 2: ECS Fargate + S3
+├── shared/
+│   └── vpc_stack.py             # Shared VPC (public subnets)
 └── README.md                    # This file
 
-service/                         # Lambda code
+docker/
+└── Dockerfile                   # ECS Fargate container image
+
+service/
 ├── handlers/
-│   └── processor.py             # SQS message handler
+│   └── processor.py             # Lambda handler (Powertools)
+├── container/
+│   └── processor.py             # ECS Fargate processor (structlog)
 └── dal/
     ├── dynamodb.py              # DynamoDB helper
     ├── s3.py                    # S3 read/write helper
     └── sqs.py                   # SQS send helper
 
 scripts/
-└── run_perf_test.py             # Test runner script
+└── run_perf_test.py             # Test runner script (--scenario 1|2)
 ```
 
 ## Example Workflow: Compare Memory Configurations
@@ -250,9 +348,19 @@ make run MESSAGES=5000 ENV=dev
 
 ## Troubleshooting
 
-### Messages not processing?
+### Messages not processing? (Scenario 1 - Lambda)
 - Check DLQ for failed messages
 - Check Lambda CloudWatch logs: `/aws/lambda/scenario-1-{env}-processor`
+
+### Messages not processing? (Scenario 2 - ECS)
+- Ensure service is scaled up: `make ecs-status ENV=dev`
+- Scale up if needed: `make scale-up DESIRED_COUNT=1 ENV=dev`
+- Check ECS CloudWatch logs: `/ecs/scenario-2-{env}-processor`
+
+### ECS tasks not starting?
+- Check ECS service events: AWS Console → ECS → Clusters → scenario-2-{env}-cluster
+- Verify public IP assignment and internet access
+- Check security group allows outbound traffic
 
 ### Can't see costs by tag?
 - Ensure tag is activated in Billing Console

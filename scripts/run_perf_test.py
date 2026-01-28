@@ -39,6 +39,27 @@ def get_queue_url(env: str) -> str:
         sys.exit(1)
 
 
+def get_queue_url_for_scenario(env: str, scenario: int) -> str:
+    """Get the incoming queue URL from CloudFormation outputs for a specific scenario."""
+    cf_client = boto3.client("cloudformation")
+    stack_name = f"scenario-{scenario}-{env}"
+
+    try:
+        response = cf_client.describe_stacks(StackName=stack_name)
+        outputs = response["Stacks"][0].get("Outputs", [])
+
+        for output in outputs:
+            if output["OutputKey"] == "IncomingQueueUrl":
+                return str(output["OutputValue"])
+
+        raise ValueError(f"IncomingQueueUrl output not found in stack {stack_name}")
+    except cf_client.exceptions.ClientError:
+        deploy_cmd = "make deploy" if scenario == 1 else "make deploy-ecs"
+        print(f"Error: Stack {stack_name} not found. Deploy it first with:")
+        print(f"  {deploy_cmd} ENV={env}")
+        sys.exit(1)
+
+
 def send_messages(
     queue_url: str,
     num_messages: int,
@@ -138,6 +159,13 @@ def main():
         help="Target environment (default: dev)",
     )
     parser.add_argument(
+        "--scenario",
+        type=int,
+        default=1,
+        choices=[1, 2],
+        help="Scenario to test: 1=Lambda, 2=ECS (default: 1)",
+    )
+    parser.add_argument(
         "--work-duration-ms",
         type=int,
         default=100,
@@ -158,8 +186,11 @@ def main():
 
     args = parser.parse_args()
 
+    scenario_name = "Lambda" if args.scenario == 1 else "ECS Fargate"
+
     print("Performance Test Runner")
     print("=" * 50)
+    print(f"Scenario:        {args.scenario} ({scenario_name})")
     print(f"Environment:     {args.env}")
     print(f"Messages:        {args.messages}")
     print(f"Work Duration:   {args.work_duration_ms}ms")
@@ -169,8 +200,12 @@ def main():
 
     # Get queue URL
     print("\nFetching queue URL...")
-    queue_url = get_queue_url(args.env)
+    queue_url = get_queue_url_for_scenario(args.env, args.scenario)
     print(f"Queue: {queue_url}")
+
+    # Warn if ECS service might not be running
+    if args.scenario == 2:
+        print("\n⚠️  Ensure ECS service is scaled up: make scale-up ENV=" + args.env)
 
     # Send messages
     print(f"\nSending {args.messages} messages...")
