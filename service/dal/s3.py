@@ -7,8 +7,12 @@ from aws_lambda_powertools import Logger, Tracer
 from botocore.exceptions import ClientError
 
 from service.dal.interface import (
+    IDelayDataAccess,
     IModelDataAccess,
+    IPercentilesDataAccess,
+    ISequenceDataAccess,
 )
+from service.models.aircraft_daily_sequence_dto import DailySequenceDto
 
 logger = Logger()
 tracer = Tracer()
@@ -117,3 +121,86 @@ class ModelS3DataAccess(IModelDataAccess):
 
         # Upload to S3
         self.s3.put_object(Bucket=self.bucket, Key=key, Body=buffer.getvalue())
+
+
+class DelayDataAccess(IDelayDataAccess):
+    def __init__(self, bucket: str, prefix: str):
+        self.bucket = bucket
+        self.prefix = _normalize_prefix(prefix)
+        self.s3 = boto3.client("s3")
+
+    def _key(self, code: str, sequence_id: int) -> str:
+        return f"{self.prefix}/delays/{code}/sequence_{sequence_id}.parquet"
+
+    def store_delays(self, delays: pd.DataFrame, code: str, sequence_id: int) -> str:
+        key = self._key(code, sequence_id)
+
+        # Convert DataFrame to parquet in memory
+        buffer = io.BytesIO()
+        delays.to_parquet(buffer, index=False)
+        buffer.seek(0)
+
+        # Upload to S3
+        self.s3.put_object(Bucket=self.bucket, Key=key, Body=buffer.getvalue())
+        return key
+
+    def get_delays(self, reference: str) -> pd.DataFrame:
+        try:
+            resp = self.s3.get_object(Bucket=self.bucket, Key=reference)
+        except ClientError as e:
+            raise FileNotFoundError(f"S3 object s3://{self.bucket}/{reference} not found: {e}") from e
+
+        body = resp["Body"].read()
+        bio = io.BytesIO(body)
+        bio.seek(0)
+        df = pd.read_parquet(bio)
+        return df
+
+
+class PercentilesS3DataAccess(IPercentilesDataAccess):
+    def __init__(self, bucket: str, prefix: str):
+        self.bucket = bucket
+        self.prefix = _normalize_prefix(prefix)
+        self.s3 = boto3.client("s3")
+
+    def _key(self, sequence_id: int) -> str:
+        return f"{self.prefix}/percentiles/sequence_{sequence_id}.json"
+
+    def store_percentiles(self, sequence_id: int, percentile: dict):
+        key = self._key(sequence_id)
+        json_str = json.dumps(percentile, indent=2, default=str)
+        self.s3.put_object(Bucket=self.bucket, Key=key, Body=json_str.encode("utf-8"))
+
+    def get_percentiles(self, sequence_id: int) -> dict:
+        key = self._key(sequence_id)
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            content = response["Body"].read().decode("utf-8")
+            data: dict = json.loads(content)
+            return data
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchKey":
+                raise FileNotFoundError(f"S3 object s3://{self.bucket}/{key} not found: {e}") from e
+            raise
+
+
+class SequenceS3DataAccess(ISequenceDataAccess):
+    def __init__(self, bucket: str, prefix: str):
+        self.bucket = bucket
+        self.prefix = _normalize_prefix(prefix)
+        self.s3 = boto3.client("s3")
+
+    def _key(self, sequence_id: int) -> str:
+        return f"{self.prefix}/sequences/sequence_{sequence_id}.json"
+
+    def get_sequence(self, sequence_id: int) -> DailySequenceDto:
+        key = self._key(sequence_id)
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            content = response["Body"].read().decode("utf-8")
+            data: dict = json.loads(content)
+            return DailySequenceDto(**data)
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchKey":
+                raise FileNotFoundError(f"S3 object s3://{self.bucket}/{key} not found: {e}") from e
+            raise

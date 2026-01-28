@@ -22,4 +22,3 @@ ENV_CONFIG = {
 PREFIX = "myproject"
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-S3_BUCKET = "ei-flightdelaypredictions-607360609737"
