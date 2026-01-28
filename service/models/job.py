@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -22,7 +22,7 @@ class IncomingJob(BaseModel):
     route_data: dict[str, Any] = Field(..., description="Route data (origin, destination, times)")
     home_airport_iata: str = Field(..., description="Home airport for this sequence")
     total_routes: int = Field(..., description="Total number of routes in the sequence")
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class CompletedJob(BaseModel):
@@ -33,7 +33,7 @@ class CompletedJob(BaseModel):
     status: str = Field(..., description="Status: success or error")
     processing_time_ms: float = Field(..., description="Time taken to process in milliseconds")
     error_message: str | None = Field(default=None, description="Error message if status is error")
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 class AggregationJob(BaseModel):
@@ -42,4 +42,4 @@ class AggregationJob(BaseModel):
     exec_type: ExecType = Field(default=ExecType.AGGREGATION)
     total_routes: int
     home_airport_iata: str
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
