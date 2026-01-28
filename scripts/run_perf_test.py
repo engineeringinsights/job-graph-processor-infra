@@ -54,7 +54,7 @@ def get_queue_url_for_scenario(env: str, scenario: int) -> str:
 
         raise ValueError(f"IncomingQueueUrl output not found in stack {stack_name}")
     except cf_client.exceptions.ClientError:
-        deploy_cmd = "make deploy" if scenario == 1 else "make deploy-ecs"
+        deploy_cmd = "make deploy-lambda" if scenario == 1 else "make deploy-ecs"
         print(f"Error: Stack {stack_name} not found. Deploy it first with:")
         print(f"  {deploy_cmd} ENV={env}")
         sys.exit(1)
