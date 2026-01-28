@@ -270,7 +270,7 @@ class Scenario2Stack(Stack):
             ),
             # Health check - container is healthy if process is running
             health_check=ecs.HealthCheck(
-                command=["CMD-SHELL", "pgrep -f 'python' || exit 1"],
+                command=["CMD-SHELL", "pgrep -f 'service.container.processor' || exit 1"],
                 interval=Duration.seconds(30),
                 timeout=Duration.seconds(5),
                 retries=3,
