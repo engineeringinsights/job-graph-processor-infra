@@ -22,7 +22,7 @@ TAG_COMPONENT = "Component"
 
 # Scenario identifiers (used for cost allocation tags)
 SCENARIO_SQS_LAMBDA_S3 = "sqs-lambda-s3"
-SCENARIO_SQS_FARGATE_S3 = "sqs-fargate-s3"  # Future
+SCENARIO_SQS_FARGATE_S3 = "sqs-fargate-s3"  # ECS Fargate scenario
 SCENARIO_KINESIS_LAMBDA_S3 = "kinesis-lambda-s3"  # Future
 
 # Lambda configuration
