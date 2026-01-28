@@ -22,19 +22,22 @@ TAG_COMPONENT = "Component"
 
 # Scenario identifiers (used for cost allocation tags)
 SCENARIO_SQS_LAMBDA_S3 = "sqs-lambda-s3"
-SCENARIO_SQS_FARGATE_S3 = "sqs-fargate-s3"  # Future
-SCENARIO_STEPFUNCTIONS_LAMBDA_S3 = "stepfunctions-lambda-s3"  # Future
+SCENARIO_SQS_FARGATE_S3 = "sqs-fargate-s3"  # ECS Fargate scenario
 SCENARIO_KINESIS_LAMBDA_S3 = "kinesis-lambda-s3"  # Future
 
 # Lambda configuration
-PERF_LAMBDA_MEMORY_SIZE = 256  # MB - adjust for performance testing
+PERF_LAMBDA_MEMORY_SIZE = 512  # MB
 PERF_LAMBDA_TIMEOUT = 60  # seconds
 PERF_LAMBDA_RESERVED_CONCURRENCY = 10  # Limit concurrency for controlled testing
 
+# ECS Fargate configuration
+ECS_CPU = 256  # 0.25 vCPU (closest match to Lambda's)
+ECS_MEMORY = 512  # MB (matches Lambda memory allocation)
+
 # SQS configuration
 SQS_VISIBILITY_TIMEOUT = 120  # seconds (should be > Lambda timeout)
-SQS_BATCH_SIZE = 10  # Messages per Lambda invocation
-SQS_MAX_BATCHING_WINDOW = 5  # seconds
+SQS_BATCH_SIZE = 1  # Messages per Lambda invocation (no batching for performance testing)
+SQS_MAX_BATCHING_WINDOW = 0  # seconds (disabled batching)
 
 # CloudWatch metrics
 METRICS_NAMESPACE = "PerfTesting"

@@ -32,19 +32,24 @@ build:
 
 .PHONY: synth
 synth: build
-	ENV=$(ENV) TEST_RUN_ID=$(TEST_RUN_ID) npx cdk synth --app "python perf_app.py" --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre"
+	ENV=$(ENV) TEST_RUN_ID=$(TEST_RUN_ID) npx cdk synth --app "python perf_app.py" --all --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre"
 	@ if [ "$(ENV)" = "dev" ]; then \
 		npx cdk-dia; \
 	fi
 
+# Deploy all scenarios (shared VPC + scenario 1 + scenario 2)
 .PHONY: deploy
 deploy: build
+	ENV=$(ENV) TEST_RUN_ID=$(TEST_RUN_ID) npx cdk deploy --app "python perf_app.py" --all --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre" --require-approval=never
+
+.PHONY: deploy-lambda
+deploy-lambda: build
 	ENV=$(ENV) TEST_RUN_ID=$(TEST_RUN_ID) npx cdk deploy --app "python perf_app.py" scenario-1-$(ENV) --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre" --require-approval=never
 
-# Destroy resources in dev environment with confirmation
-.PHONY: destroy
-destroy:
-	@read -p "Are you sure you want to destroy the stack? (y/N): " confirm; \
+# Destroy scenario 1 (Lambda) resources with confirmation
+.PHONY: destroy-lambda
+destroy-lambda:
+	@read -p "Are you sure you want to destroy the scenario-1 stack? (y/N): " confirm; \
 	if [ "$$confirm" = "y" ]; then \
 		ENV=$(ENV) npx cdk destroy --app "python perf_app.py" scenario-1-$(ENV) --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre"; \
 	else \
@@ -93,10 +98,71 @@ test-unit:
 # Performance Testing Targets
 # =============================================================================
 
-# Run performance test (sends messages to queue)
+# Run performance test for scenario 1 (Lambda)
 .PHONY: run
 run:
-	poetry run python scripts/run_perf_test.py --messages $(MESSAGES) --env $(ENV)
+	poetry run python scripts/run_perf_test.py --messages $(MESSAGES) --env $(ENV) --scenario 1
+
+# Run performance test for scenario 2 (ECS)
+.PHONY: run-ecs
+run-ecs:
+	poetry run python scripts/run_perf_test.py --messages $(MESSAGES) --env $(ENV) --scenario 2
+
+# =============================================================================
+# Scenario 2 (ECS Fargate) Targets
+# =============================================================================
+
+# Default scaling values
+DESIRED_COUNT ?= 1
+
+# Deploy scenario 2 (includes VPC + ECS)
+.PHONY: deploy-ecs
+deploy-ecs: build
+	ENV=$(ENV) TEST_RUN_ID=$(TEST_RUN_ID) npx cdk deploy --app "python perf_app.py" perf-shared-$(ENV) scenario-2-$(ENV) --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre" --require-approval=never
+
+# Destroy scenario 2
+.PHONY: destroy-ecs
+destroy-ecs:
+	@read -p "Are you sure you want to destroy scenario-2 stack? (y/N): " confirm; \
+	if [ "$$confirm" = "y" ]; then \
+		ENV=$(ENV) npx cdk destroy --app "python perf_app.py" scenario-2-$(ENV) --toolkit-stack-name cdk-bootstrap -c "@aws-cdk/core:bootstrapQualifier=renre"; \
+	else \
+		echo "Aborted destroy."; \
+	fi
+
+# Scale ECS service up (start processing)
+.PHONY: scale-up
+scale-up:
+	@echo "Scaling scenario-2-$(ENV)-service to $(DESIRED_COUNT) tasks..."
+	aws ecs update-service \
+		--cluster scenario-2-$(ENV)-cluster \
+		--service scenario-2-$(ENV)-service \
+		--desired-count $(DESIRED_COUNT) \
+		--query 'service.desiredCount' \
+		--output text
+	@echo "Service scaled to $(DESIRED_COUNT) tasks"
+
+# Scale ECS service down (stop all tasks)
+.PHONY: scale-down
+scale-down:
+	@echo "Scaling scenario-2-$(ENV)-service to 0 tasks..."
+	aws ecs update-service \
+		--cluster scenario-2-$(ENV)-cluster \
+		--service scenario-2-$(ENV)-service \
+		--desired-count 0 \
+		--query 'service.desiredCount' \
+		--output text
+	@echo "Service scaled to 0 tasks"
+
+# Check ECS service status
+.PHONY: ecs-status
+ecs-status:
+	@echo "ECS Service Status for scenario-2-$(ENV):"
+	@aws ecs describe-services \
+		--cluster scenario-2-$(ENV)-cluster \
+		--services scenario-2-$(ENV)-service \
+		--query 'services[0].{DesiredCount:desiredCount,RunningCount:runningCount,PendingCount:pendingCount,Status:status}' \
+		--output table
 
 # Run the External Scheduler (job graph workflow)
 .PHONY: run-scheduler
@@ -108,18 +174,26 @@ run-scheduler:
 help:
 	@echo "Commands:"
 	@echo ""
-	@echo "  make synth                         - Synthesize stack"
-	@echo "  make deploy                        - Deploy stack"
-	@echo "  make destroy                       - Destroy stack"
-	@echo "  make run MESSAGES=100              - Run perf test with N messages"
+	@echo "  make synth                         - Synthesize all stacks"
+	@echo "  make deploy                        - Deploy all scenarios (Lambda + ECS)"
+	@echo "  make deploy-lambda                 - Deploy scenario 1 (Lambda) only"
+	@echo "  make deploy-ecs                    - Deploy scenario 2 (ECS) only"
+	@echo "  make destroy-lambda                - Destroy scenario 1 (Lambda)"
+	@echo "  make destroy-ecs                   - Destroy scenario 2 (ECS)"
+	@echo "  make run MESSAGES=100              - Run perf test with N messages (scenario 1)"
+	@echo "  make run-ecs MESSAGES=100          - Run perf test with N messages (scenario 2)"
+	@echo "  make scale-up DESIRED_COUNT=2      - Scale ECS service up"
+	@echo "  make scale-down                    - Scale ECS service to 0"
+	@echo "  make ecs-status                    - Check ECS service status"
 	@echo "  make run-scheduler                 - Run job graph scheduler"
 	@echo ""
 	@echo "Environment Variables:"
 	@echo "  ENV=dev|prod                       - Target environment (default: dev)"
 	@echo "  TEST_RUN_ID=<id>                   - Cost allocation tag for this test run"
+	@echo "  DESIRED_COUNT=N                    - Number of ECS tasks (default: 1)"
 	@echo ""
 	@echo "Workflow:"
-	@echo "  1. Deploy once:  make deploy ENV=dev"
+	@echo "  1. Deploy all:   make deploy ENV=dev"
 	@echo "  2. Tag test run: TEST_RUN_ID=test-001 make deploy ENV=dev"
 	@echo "  3. Run test:     make run MESSAGES=1000 ENV=dev"
 	@echo "  4. Or run graph: make run-scheduler ENV=dev"

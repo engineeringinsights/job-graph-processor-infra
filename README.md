@@ -13,7 +13,7 @@ This project provides infrastructure for comparing different approaches to proce
 | Scenario | Stack Name | Description | Status |
 |----------|------------|-------------|--------|
 | **Scenario 1** | `scenario-1-{env}` | SQS → Lambda → S3 (serverless) | ✅ Available |
-| Scenario 2 | `scenario-2-{env}` | SQS → ECS → S3 (containers) | 🔜 Coming soon |
+| **Scenario 2** | `scenario-2-{env}` | SQS → ECS Fargate → S3 (containers) | ✅ Available |
 | Scenario 3 | `scenario-3-{env}` | Step Functions orchestration | 🔜 Coming soon |
 
 ## Quick Start
@@ -74,11 +74,18 @@ make run MESSAGES=1000 ENV=dev
 ├── constants.py             # 🔧 CONFIGURE THIS - AWS account config
 ├── cdk/
 │   ├── scenario1_stack.py   # Scenario 1: Lambda + S3
+│   ├── scenario2_stack.py   # Scenario 2: ECS Fargate + S3
+│   ├── shared/
+│   │   └── vpc_stack.py     # Shared VPC (public subnets, no NAT)
 │   ├── constants.py         # Stack configuration
 │   └── README.md            # Detailed documentation
-├── service/                 # Lambda code
+├── docker/
+│   └── Dockerfile           # ECS Fargate container image
+├── service/
 │   ├── handlers/
-│   │   └── processor.py     # Job processor handler
+│   │   └── processor.py     # Lambda processor
+│   ├── container/
+│   │   └── processor.py     # ECS Fargate processor
 │   └── dal/
 │       ├── dynamodb.py      # DynamoDB helper
 │       ├── s3.py            # S3 helper
@@ -90,12 +97,30 @@ make run MESSAGES=1000 ENV=dev
 
 ## Make Commands
 
+### Scenario 1 (Lambda)
+
+| Command | Description |
+|---------|-------------|
+| `make deploy ENV=dev` | Deploy Lambda stack |
+| `make destroy ENV=dev` | Destroy Lambda stack |
+| `make run MESSAGES=N ENV=dev` | Send N test messages |
+
+### Scenario 2 (ECS Fargate)
+
+| Command | Description |
+|---------|-------------|
+| `make deploy-ecs ENV=dev` | Deploy VPC + ECS stack |
+| `make destroy-ecs ENV=dev` | Destroy ECS stack |
+| `make scale-up DESIRED_COUNT=2 ENV=dev` | Scale ECS service up |
+| `make scale-down ENV=dev` | Scale ECS service to 0 |
+| `make ecs-status ENV=dev` | Check ECS service status |
+| `make run-ecs MESSAGES=N ENV=dev` | Send N test messages |
+
+### Common
+
 | Command | Description |
 |---------|-------------|
 | `make bootstrap` | Install dependencies |
-| `make deploy` | Deploy stack |
-| `make destroy` | Destroy stack |
-| `make run MESSAGES=N` | Send N test messages |
 | `make synth` | Synthesize CloudFormation |
 | `make lint` | Run linting |
 | `make test-unit` | Run tests |
