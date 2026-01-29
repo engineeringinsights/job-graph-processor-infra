@@ -204,3 +204,9 @@ class SequenceS3DataAccess(ISequenceDataAccess):
             if e.response["Error"]["Code"] == "NoSuchKey":
                 raise FileNotFoundError(f"S3 object s3://{self.bucket}/{key} not found: {e}") from e
             raise
+
+    def store_sequence(self, sequence: DailySequenceDto) -> int:
+        key = self._key(sequence.sequence_id)
+        json_str = json.dumps(sequence.model_dump(), indent=2, default=str)
+        self.s3.put_object(Bucket=self.bucket, Key=key, Body=json_str.encode("utf-8"))
+        return sequence.sequence_id

@@ -199,3 +199,34 @@ class TestSequenceS3DataAccess:
         access = SequenceS3DataAccess(bucket="test-bucket", prefix="")
         key = access._key(42)
         assert key == "/sequences/sequence_42.json"
+
+    def test_store_sequence(self, sequence_access, mock_s3_client):
+        from service.models.aircraft_daily_sequence_dto import RouteDto
+
+        sequence = DailySequenceDto(
+            sequence_id=42,
+            home_airport_iata="DUB",
+            routes=[
+                RouteDto(
+                    origin_iata="DUB",
+                    destination_iata="OSL",
+                    estimated_gate_open_time="00:25:00",
+                    estimated_takeoff_time="02:04:00",
+                    estimated_arrival_time="03:41:00",
+                )
+            ],
+        )
+
+        result = sequence_access.store_sequence(sequence)
+
+        assert result == 42
+        mock_s3_client.put_object.assert_called_once()
+        call_args = mock_s3_client.put_object.call_args
+        assert call_args.kwargs["Bucket"] == "test-bucket"
+        assert call_args.kwargs["Key"] == "test-prefix/sequences/sequence_42.json"
+
+        body = call_args.kwargs["Body"].decode("utf-8")
+        stored_data = json.loads(body)
+        assert stored_data["sequence_id"] == 42
+        assert stored_data["home_airport_iata"] == "DUB"
+        assert len(stored_data["routes"]) == 1

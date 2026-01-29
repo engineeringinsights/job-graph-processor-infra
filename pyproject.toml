@@ -16,6 +16,7 @@ boto3 = "^1.35.0"
 pandas = "^2.2.0"
 pydantic = "^2.12.5"
 pyarrow = "^18.0.0"
+tqdm = "^4.67.0"
 
 # Docker/ECS additional dependencies (not needed for Lambda)
 [tool.poetry.group.docker]
@@ -73,6 +74,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101"]
+"scripts/data_generators/**/*.py" = ["S311"]  # Pseudo-random generators OK for test data generation
 
 # Bandit configuration
 [tool.bandit]
