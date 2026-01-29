@@ -123,7 +123,7 @@ class ModelS3DataAccess(IModelDataAccess):
         self.s3.put_object(Bucket=self.bucket, Key=key, Body=buffer.getvalue())
 
 
-class DelayDataAccess(IDelayDataAccess):
+class DelayDataS3Access(IDelayDataAccess):
     def __init__(self, bucket: str, prefix: str):
         self.bucket = bucket
         self.prefix = _normalize_prefix(prefix)
