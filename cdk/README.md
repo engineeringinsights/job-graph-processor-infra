@@ -322,6 +322,19 @@ scripts/
 └── run_perf_test.py             # Test runner script (--scenario 1|2)
 ```
 
+### Result Folder structure on multiple runs
+
+We want to solve same job graph using multiple implementations. That means we will have multiple RUNs, in which every RUN will have multiple JOBs with corresponding JOB CORRELATION IDS.
+
+To support folder structure like this:
+
+```
+<run_id>/ - folder for a given run
+<run_id>/delays/<airport_iata>.parquet - for each airport in sequence we will have on delays file
+<run_id>/percentiles/<sequence_id>.json - for each sequence we will have one percentiles file (output of final node in sequence)
+<run_id>/merged_percentiles.json - these are results
+```
+
 ## Aircraft Daily Sequence Generator
 
 The `generate_aircraft_daily_sequences` function creates realistic daily flight sequences for aircraft with the following constraints:

@@ -30,19 +30,19 @@ class TestDelayDataAccess:
         assert access.prefix == "test-prefix"
 
     def test_key_generation(self, delay_access):
-        key = delay_access._key("ABC123", 42)
-        assert key == "test-prefix/delays/ABC123/sequence_42.parquet"
+        key = delay_access._key("DUB", "test-run-123", 42)
+        assert key == "test-prefix/test-run-123/delays/42/DUB.parquet"
 
     def test_store_delays(self, delay_access, mock_s3_client):
         df = pd.DataFrame({"delay": [10, 20, 30], "airport": ["DUB", "OSL", "DME"]})
 
-        result = delay_access.store_delays(df, "ABC123", 42)
+        result = delay_access.store_delays(df, "DUB", "test-run-123", 42)
 
-        assert result == "test-prefix/delays/ABC123/sequence_42.parquet"
+        assert result == "test-prefix/test-run-123/delays/42/DUB.parquet"
         mock_s3_client.put_object.assert_called_once()
         call_args = mock_s3_client.put_object.call_args
         assert call_args.kwargs["Bucket"] == "test-bucket"
-        assert call_args.kwargs["Key"] == "test-prefix/delays/ABC123/sequence_42.parquet"
+        assert call_args.kwargs["Key"] == "test-prefix/test-run-123/delays/42/DUB.parquet"
 
         body = call_args.kwargs["Body"]
         result_df = pd.read_parquet(io.BytesIO(body))
@@ -58,11 +58,11 @@ class TestDelayDataAccess:
         mock_response["Body"].read.return_value = buffer.read()
         mock_s3_client.get_object.return_value = mock_response
 
-        result = delay_access.get_delays("test-prefix/delays/ABC123/sequence_42.parquet")
+        result = delay_access.get_delays("test-prefix/test-run-123/42/delays/DUB.parquet", "test-run-123")
 
         pd.testing.assert_frame_equal(result, df)
         mock_s3_client.get_object.assert_called_once_with(
-            Bucket="test-bucket", Key="test-prefix/delays/ABC123/sequence_42.parquet"
+            Bucket="test-bucket", Key="test-prefix/test-run-123/42/delays/DUB.parquet"
         )
 
     def test_get_delays_not_found(self, delay_access, mock_s3_client):
@@ -70,7 +70,7 @@ class TestDelayDataAccess:
         mock_s3_client.get_object.side_effect = ClientError(error_response, "GetObject")
 
         with pytest.raises(FileNotFoundError) as exc_info:
-            delay_access.get_delays("non-existent-key")
+            delay_access.get_delays("non-existent-key", "test-run-123")
 
         assert "s3://test-bucket/non-existent-key not found" in str(exc_info.value)
 
@@ -89,18 +89,18 @@ class TestPercentilesS3DataAccess:
         assert access.prefix == ""
 
     def test_key_generation(self, percentiles_access):
-        key = percentiles_access._key(42)
-        assert key == "test-prefix/percentiles/sequence_42.json"
+        key = percentiles_access._key("test-run-123", 42)
+        assert key == "test-prefix/test-run-123/percentiles/42/42.json"
 
     def test_store_percentiles(self, percentiles_access, mock_s3_client):
         percentile_data = {"p50": 10.5, "p95": 25.3, "p99": 45.7}
 
-        percentiles_access.store_percentiles(42, percentile_data)
+        percentiles_access.store_percentiles("test-run-123", 42, percentile_data)
 
         mock_s3_client.put_object.assert_called_once()
         call_args = mock_s3_client.put_object.call_args
         assert call_args.kwargs["Bucket"] == "test-bucket"
-        assert call_args.kwargs["Key"] == "test-prefix/percentiles/sequence_42.json"
+        assert call_args.kwargs["Key"] == "test-prefix/test-run-123/percentiles/42/42.json"
 
         body = call_args.kwargs["Body"]
         stored_data = json.loads(body.decode("utf-8"))
@@ -113,11 +113,11 @@ class TestPercentilesS3DataAccess:
         mock_response["Body"].read.return_value = json.dumps(percentile_data).encode("utf-8")
         mock_s3_client.get_object.return_value = mock_response
 
-        result = percentiles_access.get_percentiles(42)
+        result = percentiles_access.get_percentiles("test-run-123", 42)
 
         assert result == percentile_data
         mock_s3_client.get_object.assert_called_once_with(
-            Bucket="test-bucket", Key="test-prefix/percentiles/sequence_42.json"
+            Bucket="test-bucket", Key="test-prefix/test-run-123/percentiles/42/42.json"
         )
 
     def test_get_percentiles_not_found(self, percentiles_access, mock_s3_client):
@@ -125,16 +125,16 @@ class TestPercentilesS3DataAccess:
         mock_s3_client.get_object.side_effect = ClientError(error_response, "GetObject")
 
         with pytest.raises(FileNotFoundError) as exc_info:
-            percentiles_access.get_percentiles(999)
+            percentiles_access.get_percentiles("test-run-123", 999)
 
-        assert "s3://test-bucket/test-prefix/percentiles/sequence_999.json not found" in str(exc_info.value)
+        assert "s3://test-bucket/test-prefix/test-run-123/percentiles/999/999.json not found" in str(exc_info.value)
 
     def test_get_percentiles_other_error(self, percentiles_access, mock_s3_client):
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}
         mock_s3_client.get_object.side_effect = ClientError(error_response, "GetObject")
 
         with pytest.raises(ClientError):
-            percentiles_access.get_percentiles(42)
+            percentiles_access.get_percentiles("test-run-123", 42)
 
 
 class TestSequenceS3DataAccess:

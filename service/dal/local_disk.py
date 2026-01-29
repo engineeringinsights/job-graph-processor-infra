@@ -1,6 +1,5 @@
 import json
 import os
-import uuid
 
 import pandas as pd
 
@@ -43,17 +42,14 @@ class DelayLocalDiskDataAccess(IDelayDataAccess):
     def __init__(self, path: str):
         self.path = path
 
-    def store_delays(self, delays: pd.DataFrame, code: str, sequence_id: int) -> str:
-        uid = uuid.uuid4()
-        name = f"{code}_{sequence_id}_{uid}"
-        os.makedirs(self.path + "/calculated_delays", exist_ok=True)
-        full_path = self.path + f"/calculated_delays/{name}.parquet"
+    def store_delays(self, delays: pd.DataFrame, code: str, run_id: str, sequence_id: int) -> str:
+        os.makedirs(f"{self.path}/{run_id}/delays/{sequence_id}/", exist_ok=True)
+        full_path = f"{self.path}/{run_id}/delays/{sequence_id}/{code}.parquet"
         delays.to_parquet(full_path)
-        return name
+        return full_path
 
-    def get_delays(self, reference: str) -> pd.DataFrame:
-        full_path = self.path + f"/calculated_delays/{reference}.parquet"
-        df = pd.read_parquet(full_path)
+    def get_delays(self, reference: str, run_id: str) -> pd.DataFrame:
+        df = pd.read_parquet(reference)
         return df
 
 
@@ -80,14 +76,14 @@ class PercentileslLocalDiskDataAccess(IPercentilesDataAccess):
     def __init__(self, path: str):
         self.path = path
 
-    def store_percentiles(self, sequence_id: int, percentile: dict):
-        os.makedirs(self.path + "/percentiles", exist_ok=True)
-        full_path = self.path + f"/percentiles/{sequence_id}.json"
+    def store_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
+        os.makedirs(f"{self.path}/{run_id}/percentiles/{sequence_id}", exist_ok=True)
+        full_path = f"{self.path}/{run_id}/percentiles/{sequence_id}/{sequence_id}.json"
         with open(full_path, "w") as file:
             json.dump(percentile, file)
 
-    def get_percentiles(self, sequence_id: int) -> dict:
-        full_path = self.path + f"/percentiles/{sequence_id}.json"
+    def get_percentiles(self, run_id: str, sequence_id: int) -> dict:
+        full_path = f"{self.path}/{run_id}/percentiles/{sequence_id}/{sequence_id}.json"
         with open(full_path) as file:
             data: dict = json.load(file)
         return data
