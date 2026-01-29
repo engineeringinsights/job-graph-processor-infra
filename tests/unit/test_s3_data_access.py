@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from botocore.exceptions import ClientError
 
-from service.dal.s3 import DelayDataAccess, PercentilesS3DataAccess, SequenceS3DataAccess
+from service.dal.s3 import DelayDataS3Access, PercentilesS3DataAccess, SequenceS3DataAccess
 from service.models.aircraft_daily_sequence_dto import DailySequenceDto
 
 
@@ -19,14 +19,14 @@ def mock_s3_client():
 class TestDelayDataAccess:
     @pytest.fixture
     def delay_access(self, mock_s3_client):
-        return DelayDataAccess(bucket="test-bucket", prefix="test-prefix")
+        return DelayDataS3Access(bucket="test-bucket", prefix="test-prefix")
 
     def test_init(self, delay_access):
         assert delay_access.bucket == "test-bucket"
         assert delay_access.prefix == "test-prefix"
 
     def test_init_with_trailing_slashes(self, mock_s3_client):
-        access = DelayDataAccess(bucket="test-bucket", prefix="/test-prefix/")
+        access = DelayDataS3Access(bucket="test-bucket", prefix="/test-prefix/")
         assert access.prefix == "test-prefix"
 
     def test_key_generation(self, delay_access):
