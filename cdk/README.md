@@ -322,6 +322,20 @@ scripts/
 └── run_perf_test.py             # Test runner script (--scenario 1|2)
 ```
 
+## Aircraft Daily Sequence Generator
+
+The `generate_aircraft_daily_sequences` function creates realistic daily flight sequences for aircraft with the following constraints:
+
+- **Start time**: Gate opens at home airport between 00:05 and 02:00
+- **Takeoff timing**: Occurs 80-110 minutes after gate opens
+- **Flight duration**: Calculated using haversine distance between airports with average speed of 800 km/h
+- **Turnaround time**: Next gate opens 10-40 minutes after landing
+- **Daily flights**: Aircraft performs 2-8 flights per day
+- **End of day**: Aircraft returns to home airport with last landing after 16:00
+- **Maintenance window**: Aircraft must land back at home airport before 23:00 on the same day
+
+The generator uses the `calculate_flight_duration` method to compute realistic flight times based on geographic coordinates.
+
 ## Example Workflow: Compare Memory Configurations
 
 ```bash

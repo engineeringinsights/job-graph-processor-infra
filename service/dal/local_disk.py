@@ -68,6 +68,13 @@ class SequenceLocalDiskDataAccess(ISequenceDataAccess):
         dto = DailySequenceDto(**data)
         return dto
 
+    def store_sequence(self, sequence: DailySequenceDto) -> int:
+        os.makedirs(self.path + "/sequences", exist_ok=True)
+        full_path = self.path + f"/sequences/{sequence.sequence_id}.json"
+        with open(full_path, "w") as file:
+            json.dump(sequence.model_dump(), file, indent=2, default=str)
+        return sequence.sequence_id
+
 
 class PercentileslLocalDiskDataAccess(IPercentilesDataAccess):
     def __init__(self, path: str):

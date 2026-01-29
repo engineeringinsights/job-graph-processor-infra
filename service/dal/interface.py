@@ -48,6 +48,10 @@ class ISequenceDataAccess(ABC):
     def get_sequence(self, sequence_id: int) -> DailySequenceDto:
         pass
 
+    @abstractmethod
+    def store_sequence(self, sequence: DailySequenceDto) -> int:
+        pass
+
 
 class DataAccess:
     def __init__(
