@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 
 from service.dal.interface import (
     IDelayDataAccess,
+    IMergedPercentilesDataAccess,
     IModelDataAccess,
     IPercentilesDataAccess,
     ISequenceDataAccess,
@@ -172,6 +173,33 @@ class PercentilesS3DataAccess(IPercentilesDataAccess):
         self.s3.put_object(Bucket=self.bucket, Key=key, Body=json_str.encode("utf-8"))
 
     def get_percentiles(self, run_id: str, sequence_id: int) -> dict:
+        key = self._key(run_id, sequence_id)
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            content = response["Body"].read().decode("utf-8")
+            data: dict = json.loads(content)
+            return data
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchKey":
+                raise FileNotFoundError(f"S3 object s3://{self.bucket}/{key} not found: {e}") from e
+            raise
+
+
+class MergedPercentilesS3DataAccess(IMergedPercentilesDataAccess):
+    def __init__(self, bucket: str, prefix: str):
+        self.bucket = bucket
+        self.prefix = _normalize_prefix(prefix)
+        self.s3 = boto3.client("s3")
+
+    def _key(self, run_id: str, sequence_id: int) -> str:
+        return f"{self.prefix}/{run_id}/merged_percentiles/{sequence_id}.json"
+
+    def store_merged_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
+        key = self._key(run_id, sequence_id)
+        json_str = json.dumps(percentile, indent=2, default=str)
+        self.s3.put_object(Bucket=self.bucket, Key=key, Body=json_str.encode("utf-8"))
+
+    def get_merged_percentiles(self, run_id: str, sequence_id: int) -> dict:
         key = self._key(run_id, sequence_id)
         try:
             response = self.s3.get_object(Bucket=self.bucket, Key=key)

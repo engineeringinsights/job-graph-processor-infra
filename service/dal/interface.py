@@ -43,6 +43,16 @@ class IPercentilesDataAccess(ABC):
         pass
 
 
+class IMergedPercentilesDataAccess(ABC):
+    @abstractmethod
+    def store_merged_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
+        pass
+
+    @abstractmethod
+    def get_merged_percentiles(self, run_id: str, sequence_id: int) -> dict:
+        pass
+
+
 class ISequenceDataAccess(ABC):
     @abstractmethod
     def get_sequence(self, sequence_id: int) -> DailySequenceDto:
@@ -60,8 +70,10 @@ class DataAccess:
         percentiles_access: IPercentilesDataAccess,
         delay_data_access: IDelayDataAccess,
         sequence_data_access: ISequenceDataAccess,
+        merged_percentiles_access: IMergedPercentilesDataAccess,
     ):
         self.model_data_access: IModelDataAccess = model_data_access
         self.percentiles_access: IPercentilesDataAccess = percentiles_access
         self.delay_data_access: IDelayDataAccess = delay_data_access
         self.sequence_data_access: ISequenceDataAccess = sequence_data_access
+        self.merged_percentiles_access: IMergedPercentilesDataAccess = merged_percentiles_access

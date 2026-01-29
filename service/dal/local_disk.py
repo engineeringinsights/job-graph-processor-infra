@@ -5,6 +5,7 @@ import pandas as pd
 
 from service.dal.interface import (
     IDelayDataAccess,
+    IMergedPercentilesDataAccess,
     IModelDataAccess,
     IPercentilesDataAccess,
     ISequenceDataAccess,
@@ -84,6 +85,23 @@ class PercentileslLocalDiskDataAccess(IPercentilesDataAccess):
 
     def get_percentiles(self, run_id: str, sequence_id: int) -> dict:
         full_path = f"{self.path}/{run_id}/percentiles/{sequence_id}/{sequence_id}.json"
+        with open(full_path) as file:
+            data: dict = json.load(file)
+        return data
+
+
+class MergedPercentilesLocalDiskDataAccess(IMergedPercentilesDataAccess):
+    def __init__(self, path: str):
+        self.path = path
+
+    def store_merged_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
+        os.makedirs(f"{self.path}/{run_id}/merged_percentiles", exist_ok=True)
+        full_path = f"{self.path}/{run_id}/merged_percentiles/{sequence_id}.json"
+        with open(full_path, "w") as file:
+            json.dump(percentile, file)
+
+    def get_merged_percentiles(self, run_id: str, sequence_id: int) -> dict:
+        full_path = f"{self.path}/{run_id}/merged_percentiles/{sequence_id}.json"
         with open(full_path) as file:
             data: dict = json.load(file)
         return data

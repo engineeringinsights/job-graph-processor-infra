@@ -6,7 +6,12 @@ import pandas as pd
 import pytest
 from botocore.exceptions import ClientError
 
-from service.dal.s3 import DelayDataS3Access, PercentilesS3DataAccess, SequenceS3DataAccess
+from service.dal.s3 import (
+    DelayDataS3Access,
+    MergedPercentilesS3DataAccess,
+    PercentilesS3DataAccess,
+    SequenceS3DataAccess,
+)
 from service.models.aircraft_daily_sequence_dto import DailySequenceDto
 
 
@@ -230,3 +235,65 @@ class TestSequenceS3DataAccess:
         assert stored_data["sequence_id"] == 42
         assert stored_data["home_airport_iata"] == "DUB"
         assert len(stored_data["routes"]) == 1
+
+
+class TestMergedPercentilesS3DataAccess:
+    @pytest.fixture
+    def merged_percentiles_access(self, mock_s3_client):
+        return MergedPercentilesS3DataAccess(bucket="test-bucket", prefix="test-prefix")
+
+    def test_init(self, merged_percentiles_access):
+        assert merged_percentiles_access.bucket == "test-bucket"
+        assert merged_percentiles_access.prefix == "test-prefix"
+
+    def test_init_with_empty_prefix(self, mock_s3_client):
+        access = MergedPercentilesS3DataAccess(bucket="test-bucket", prefix="")
+        assert access.prefix == ""
+
+    def test_key_generation(self, merged_percentiles_access):
+        key = merged_percentiles_access._key("test-run-123", 42)
+        assert key == "test-prefix/test-run-123/merged_percentiles/42.json"
+
+    def test_store_merged_percentiles(self, merged_percentiles_access, mock_s3_client):
+        percentile_data = {"p50": 10.5, "p95": 25.3, "p99": 45.7}
+
+        merged_percentiles_access.store_merged_percentiles("test-run-123", 42, percentile_data)
+
+        mock_s3_client.put_object.assert_called_once()
+        call_args = mock_s3_client.put_object.call_args
+        assert call_args.kwargs["Bucket"] == "test-bucket"
+        assert call_args.kwargs["Key"] == "test-prefix/test-run-123/merged_percentiles/42.json"
+
+        body = call_args.kwargs["Body"]
+        stored_data = json.loads(body.decode("utf-8"))
+        assert stored_data == percentile_data
+
+    def test_get_merged_percentiles(self, merged_percentiles_access, mock_s3_client):
+        percentile_data = {"p50": 10.5, "p95": 25.3, "p99": 45.7}
+
+        mock_response = {"Body": MagicMock()}
+        mock_response["Body"].read.return_value = json.dumps(percentile_data).encode("utf-8")
+        mock_s3_client.get_object.return_value = mock_response
+
+        result = merged_percentiles_access.get_merged_percentiles("test-run-123", 42)
+
+        assert result == percentile_data
+        mock_s3_client.get_object.assert_called_once_with(
+            Bucket="test-bucket", Key="test-prefix/test-run-123/merged_percentiles/42.json"
+        )
+
+    def test_get_merged_percentiles_not_found(self, merged_percentiles_access, mock_s3_client):
+        error_response = {"Error": {"Code": "NoSuchKey", "Message": "Not found"}}
+        mock_s3_client.get_object.side_effect = ClientError(error_response, "GetObject")
+
+        with pytest.raises(FileNotFoundError) as exc_info:
+            merged_percentiles_access.get_merged_percentiles("test-run-123", 999)
+
+        assert "s3://test-bucket/test-prefix/test-run-123/merged_percentiles/999.json not found" in str(exc_info.value)
+
+    def test_get_merged_percentiles_other_error(self, merged_percentiles_access, mock_s3_client):
+        error_response = {"Error": {"Code": "AccessDenied", "Message": "Access denied"}}
+        mock_s3_client.get_object.side_effect = ClientError(error_response, "GetObject")
+
+        with pytest.raises(ClientError):
+            merged_percentiles_access.get_merged_percentiles("test-run-123", 42)
