@@ -25,21 +25,21 @@ class IModelDataAccess(ABC):
 
 class IDelayDataAccess(ABC):
     @abstractmethod
-    def store_delays(self, delays: pd.DataFrame, code: str, run_id: str, sequence_id: int, correlation_id: str) -> str:
+    def store_delays(self, delays: pd.DataFrame, run_id: str, job_id: str) -> str:
         pass
 
     @abstractmethod
-    def get_delays(self, reference: str, run_id: str) -> pd.DataFrame:
+    def get_delays(self, run_id: str, job_id: str) -> pd.DataFrame:
         pass
 
 
 class IPercentilesDataAccess(ABC):
     @abstractmethod
-    def store_percentiles(self, run_id: str, sequence_id: int, correlation_id: str, percentile: dict):
+    def store_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
         pass
 
     @abstractmethod
-    def get_percentiles(self, run_id: str, sequence_id: int, correlation_id: str) -> dict:
+    def get_percentiles(self, run_id: str, sequence_id: int) -> dict:
         pass
 
 
