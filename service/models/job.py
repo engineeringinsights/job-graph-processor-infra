@@ -6,12 +6,25 @@ from pydantic import BaseModel, Field
 
 
 class ExecType(str, Enum):
-    """Execution type for job processing."""
-
     FIRST = "first"
     INTERMEDIATE = "intermediate"
     LAST = "last"
     AGGREGATION = "aggregation"
+
+class JobStatus(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+    FAILED = "failed"
+
+class JobDto(BaseModel):
+    run_id: str
+    job_id : str
+    exec_type: ExecType
+    successors: list[str]
+    predaccessors: list[str]
+    job_arguments: dict
+    job_state: JobStatus = JobStatus.PENDING
 
 
 class IncomingJob(BaseModel):
@@ -23,6 +36,8 @@ class IncomingJob(BaseModel):
     home_airport_iata: str = Field(..., description="Home airport for this sequence")
     total_routes: int = Field(..., description="Total number of routes in the sequence")
     timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+
+
 
 
 class CompletedJob(BaseModel):
