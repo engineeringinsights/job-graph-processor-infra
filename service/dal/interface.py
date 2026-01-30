@@ -94,9 +94,10 @@ class DataAccess:
         percentiles_access: IPercentilesDataAccess,
         delay_data_access: IDelayDataAccess,
         sequence_data_access: ISequenceDataAccess,
+        job_data_access: IJobDataAccess,
     ):
         self.model_data_access: IModelDataAccess = model_data_access
         self.percentiles_access: IPercentilesDataAccess = percentiles_access
         self.delay_data_access: IDelayDataAccess = delay_data_access
         self.sequence_data_access: ISequenceDataAccess = sequence_data_access
-        self.jobs_data_access: IJobDataAccess = None
+        self.jobs_data_access: IJobDataAccess = job_data_access
