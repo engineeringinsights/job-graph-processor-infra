@@ -1,11 +1,11 @@
 import json
 import os
-import uuid
 
 import pandas as pd
 
 from service.dal.interface import (
     IDelayDataAccess,
+    IMergedPercentilesDataAccess,
     IModelDataAccess,
     IPercentilesDataAccess,
     ISequenceDataAccess,
@@ -43,16 +43,14 @@ class DelayLocalDiskDataAccess(IDelayDataAccess):
     def __init__(self, path: str):
         self.path = path
 
-    def store_delays(self, delays: pd.DataFrame, code: str, sequence_id: int) -> str:
-        uid = uuid.uuid4()
-        name = f"{code}_{sequence_id}_{uid}"
-        os.makedirs(self.path + "/calculated_delays", exist_ok=True)
-        full_path = self.path + f"/calculated_delays/{name}.parquet"
+    def store_delays(self, delays: pd.DataFrame, run_id: str, job_id: str) -> str:
+        os.makedirs(f"{self.path}/{run_id}/delays/", exist_ok=True)
+        full_path = f"{self.path}/{run_id}/delays/{job_id}.parquet"
         delays.to_parquet(full_path)
-        return name
+        return full_path
 
-    def get_delays(self, reference: str) -> pd.DataFrame:
-        full_path = self.path + f"/calculated_delays/{reference}.parquet"
+    def get_delays(self, run_id: str, job_id: str) -> pd.DataFrame:
+        full_path = f"{self.path}/{run_id}/delays/{job_id}.parquet"
         df = pd.read_parquet(full_path)
         return df
 
@@ -80,14 +78,31 @@ class PercentileslLocalDiskDataAccess(IPercentilesDataAccess):
     def __init__(self, path: str):
         self.path = path
 
-    def store_percentiles(self, sequence_id: int, percentile: dict):
-        os.makedirs(self.path + "/percentiles", exist_ok=True)
-        full_path = self.path + f"/percentiles/{sequence_id}.json"
+    def store_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
+        os.makedirs(f"{self.path}/{run_id}/percentiles", exist_ok=True)
+        full_path = f"{self.path}/{run_id}/percentiles/{sequence_id}.json"
         with open(full_path, "w") as file:
             json.dump(percentile, file)
 
-    def get_percentiles(self, sequence_id: int) -> dict:
-        full_path = self.path + f"/percentiles/{sequence_id}.json"
+    def get_percentiles(self, run_id: str, sequence_id: int) -> dict:
+        full_path = f"{self.path}/{run_id}/percentiles/{sequence_id}.json"
+        with open(full_path) as file:
+            data: dict = json.load(file)
+        return data
+
+
+class MergedPercentilesLocalDiskDataAccess(IMergedPercentilesDataAccess):
+    def __init__(self, path: str):
+        self.path = path
+
+    def store_merged_percentiles(self, run_id: str, percentile: dict):
+        os.makedirs(f"{self.path}/{run_id}", exist_ok=True)
+        full_path = f"{self.path}/{run_id}/merged_percentiles.json"
+        with open(full_path, "w") as file:
+            json.dump(percentile, file)
+
+    def get_merged_percentiles(self, run_id: str) -> dict:
+        full_path = f"{self.path}/{run_id}/merged_percentiles.json"
         with open(full_path) as file:
             data: dict = json.load(file)
         return data

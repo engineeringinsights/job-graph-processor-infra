@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 
 from service.dal.interface import (
     IDelayDataAccess,
+    IMergedPercentilesDataAccess,
     IModelDataAccess,
     IPercentilesDataAccess,
     ISequenceDataAccess,
@@ -129,11 +130,11 @@ class DelayDataS3Access(IDelayDataAccess):
         self.prefix = _normalize_prefix(prefix)
         self.s3 = boto3.client("s3")
 
-    def _key(self, code: str, sequence_id: int) -> str:
-        return f"{self.prefix}/delays/{code}/sequence_{sequence_id}.parquet"
+    def _key(self, run_id: str, job_id: str) -> str:
+        return f"{self.prefix}/{run_id}/delays/{job_id}.parquet"
 
-    def store_delays(self, delays: pd.DataFrame, code: str, sequence_id: int) -> str:
-        key = self._key(code, sequence_id)
+    def store_delays(self, delays: pd.DataFrame, run_id: str, job_id: str) -> str:
+        key = self._key(run_id, job_id)
 
         # Convert DataFrame to parquet in memory
         buffer = io.BytesIO()
@@ -144,11 +145,12 @@ class DelayDataS3Access(IDelayDataAccess):
         self.s3.put_object(Bucket=self.bucket, Key=key, Body=buffer.getvalue())
         return key
 
-    def get_delays(self, reference: str) -> pd.DataFrame:
+    def get_delays(self, run_id: str, job_id: str) -> pd.DataFrame:
+        key = self._key(run_id, job_id)
         try:
-            resp = self.s3.get_object(Bucket=self.bucket, Key=reference)
+            resp = self.s3.get_object(Bucket=self.bucket, Key=key)
         except ClientError as e:
-            raise FileNotFoundError(f"S3 object s3://{self.bucket}/{reference} not found: {e}") from e
+            raise FileNotFoundError(f"S3 object s3://{self.bucket}/{key} not found: {e}") from e
 
         body = resp["Body"].read()
         bio = io.BytesIO(body)
@@ -163,16 +165,43 @@ class PercentilesS3DataAccess(IPercentilesDataAccess):
         self.prefix = _normalize_prefix(prefix)
         self.s3 = boto3.client("s3")
 
-    def _key(self, sequence_id: int) -> str:
-        return f"{self.prefix}/percentiles/sequence_{sequence_id}.json"
+    def _key(self, run_id: str, sequence_id: int) -> str:
+        return f"{self.prefix}/{run_id}/percentiles/{sequence_id}.json"
 
-    def store_percentiles(self, sequence_id: int, percentile: dict):
-        key = self._key(sequence_id)
+    def store_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
+        key = self._key(run_id, sequence_id)
         json_str = json.dumps(percentile, indent=2, default=str)
         self.s3.put_object(Bucket=self.bucket, Key=key, Body=json_str.encode("utf-8"))
 
-    def get_percentiles(self, sequence_id: int) -> dict:
-        key = self._key(sequence_id)
+    def get_percentiles(self, run_id: str, sequence_id: int) -> dict:
+        key = self._key(run_id, sequence_id)
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            content = response["Body"].read().decode("utf-8")
+            data: dict = json.loads(content)
+            return data
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "NoSuchKey":
+                raise FileNotFoundError(f"S3 object s3://{self.bucket}/{key} not found: {e}") from e
+            raise
+
+
+class MergedPercentilesS3DataAccess(IMergedPercentilesDataAccess):
+    def __init__(self, bucket: str, prefix: str):
+        self.bucket = bucket
+        self.prefix = _normalize_prefix(prefix)
+        self.s3 = boto3.client("s3")
+
+    def _key(self, run_id: str) -> str:
+        return f"{self.prefix}/{run_id}/merged_percentiles/merged_percentiles.json"
+
+    def store_merged_percentiles(self, run_id: str, percentile: dict):
+        key = self._key(run_id)
+        json_str = json.dumps(percentile, indent=2, default=str)
+        self.s3.put_object(Bucket=self.bucket, Key=key, Body=json_str.encode("utf-8"))
+
+    def get_merged_percentiles(self, run_id: str) -> dict:
+        key = self._key(run_id)
         try:
             response = self.s3.get_object(Bucket=self.bucket, Key=key)
             content = response["Body"].read().decode("utf-8")
