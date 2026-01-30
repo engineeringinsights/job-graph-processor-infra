@@ -36,11 +36,11 @@ class IDelayDataAccess(ABC):
 
 class IPercentilesDataAccess(ABC):
     @abstractmethod
-    def store_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
+    def store_percentiles(self, run_id: str, sequence_id: int, percentile: dict): # todo: instead of sequence_id use job_id
         pass
 
     @abstractmethod
-    def get_percentiles(self, run_id: str, sequence_id: int) -> dict:
+    def get_percentiles(self, run_id: str, sequence_id: int) -> dict: # use job id instgead of seqwunce
         pass
 
 
