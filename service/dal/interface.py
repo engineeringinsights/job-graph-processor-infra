@@ -25,7 +25,7 @@ class IModelDataAccess(ABC):
 
 class IDelayDataAccess(ABC):
     @abstractmethod
-    def store_delays(self, delays: pd.DataFrame, code: str, run_id: str, sequence_id: int) -> str:
+    def store_delays(self, delays: pd.DataFrame, code: str, run_id: str, sequence_id: int, correlation_id: str) -> str:
         pass
 
     @abstractmethod
@@ -35,21 +35,21 @@ class IDelayDataAccess(ABC):
 
 class IPercentilesDataAccess(ABC):
     @abstractmethod
-    def store_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
+    def store_percentiles(self, run_id: str, sequence_id: int, correlation_id: str, percentile: dict):
         pass
 
     @abstractmethod
-    def get_percentiles(self, run_id: str, sequence_id: int) -> dict:
+    def get_percentiles(self, run_id: str, sequence_id: int, correlation_id: str) -> dict:
         pass
 
 
 class IMergedPercentilesDataAccess(ABC):
     @abstractmethod
-    def store_merged_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
+    def store_merged_percentiles(self, run_id: str, percentile: dict):
         pass
 
     @abstractmethod
-    def get_merged_percentiles(self, run_id: str, sequence_id: int) -> dict:
+    def get_merged_percentiles(self, run_id: str) -> dict:
         pass
 
 
@@ -70,10 +70,10 @@ class DataAccess:
         percentiles_access: IPercentilesDataAccess,
         delay_data_access: IDelayDataAccess,
         sequence_data_access: ISequenceDataAccess,
-        merged_percentiles_access: IMergedPercentilesDataAccess,
+        merged_percentiles_data_access: IMergedPercentilesDataAccess,
     ):
         self.model_data_access: IModelDataAccess = model_data_access
         self.percentiles_access: IPercentilesDataAccess = percentiles_access
         self.delay_data_access: IDelayDataAccess = delay_data_access
         self.sequence_data_access: ISequenceDataAccess = sequence_data_access
-        self.merged_percentiles_access: IMergedPercentilesDataAccess = merged_percentiles_access
+        self.merged_percentiles_data_access: IMergedPercentilesDataAccess = merged_percentiles_data_access

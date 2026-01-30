@@ -26,5 +26,5 @@ def s3_for_models(model_id: int):
         percentiles_access=PercentilesS3DataAccess(bucket=BUCKET_NAME, prefix="data"),
         delay_data_access=DelayDataS3Access(bucket=BUCKET_NAME, prefix="data"),
         sequence_data_access=SequenceS3DataAccess(bucket=BUCKET_NAME, prefix="data"),
-        merged_percentiles_access=MergedPercentilesS3DataAccess(bucket=BUCKET_NAME, prefix="data"),
+        merged_percentiles_data_access=MergedPercentilesS3DataAccess(bucket=BUCKET_NAME, prefix="data"),
     )

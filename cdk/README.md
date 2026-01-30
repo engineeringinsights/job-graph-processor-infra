@@ -326,14 +326,54 @@ scripts/
 
 We want to solve same job graph using multiple implementations. That means we will have multiple RUNs, in which every RUN will have multiple JOBs with corresponding JOB CORRELATION IDS.
 
-To support folder structure like this:
+The folder structure organizes results by `run_id` (top level), then by `correlation_id` (for grouping related jobs), and finally by result type:
 
 ```
-<run_id>/ - folder for a given run
-<run_id>/delays/<airport_iata>.parquet - for each airport in sequence we will have on delays file
-<run_id>/percentiles/<sequence_id>.json - for each sequence we will have one percentiles file (output of final node in sequence)
-<run_id>/merged_percentiles.json - these are results
+<run_id>/                                    # Top-level folder for a given test run
+├── delays/
+│   └── <correlation_id>/                   # Jobs with same correlation_id grouped together
+│       └── <code>_<sequence_id>_<correlation_id>.parquet  # Delay data for each airport/sequence
+├── percentiles/
+│   └── <correlation_id>/                   # Percentile results grouped by correlation_id
+│       └── <sequence_id>.json              # Percentiles for each sequence
+└── merged_percentiles/
+    └── merged_percentiles.json             # Final aggregated results for entire run
 ```
+
+#### Data Access Layer Classes
+
+**S3 Implementation** (`service/dal/s3.py`):
+- `DelayDataS3Access`: Stores/retrieves delay parquet files
+  - Path pattern: `<prefix>/<run_id>/delays/<correlation_id>/<code>_<sequence_id>_<correlation_id>.parquet`
+  - Methods: `store_delays(delays, code, run_id, sequence_id, correlation_id)`, `get_delays(reference, run_id)`
+
+- `PercentilesS3DataAccess`: Stores/retrieves percentile JSON files per sequence
+  - Path pattern: `<prefix>/<run_id>/percentiles/<correlation_id>/<sequence_id>.json`
+  - Methods: `store_percentiles(run_id, sequence_id, correlation_id, percentile)`, `get_percentiles(run_id, sequence_id, correlation_id)`
+
+- `MergedPercentilesS3DataAccess`: Stores/retrieves final aggregated percentiles
+  - Path pattern: `<prefix>/<run_id>/merged_percentiles/merged_percentiles.json`
+  - Methods: `store_merged_percentiles(run_id, percentile)`, `get_merged_percentiles(run_id)`
+  - Note: Single file per run_id, no correlation_id or sequence_id needed
+
+**Local Disk Implementation** (`service/dal/local_disk.py`):
+- `DelayLocalDiskDataAccess`: Mirrors S3 structure on local filesystem
+  - Path pattern: `<path>/<run_id>/delays/<correlation_id>/<code>_<sequence_id>_<correlation_id>.parquet`
+
+- `PercentileslLocalDiskDataAccess`: Mirrors S3 percentiles structure
+  - Path pattern: `<path>/<run_id>/percentiles/<correlation_id>/<sequence_id>.json`
+
+- `MergedPercentilesLocalDiskDataAccess`: Mirrors S3 merged percentiles structure
+  - Path pattern: `<path>/<run_id>/merged_percentiles/merged_percentiles.json`
+
+#### Key Concepts
+
+- **`run_id`**: Identifies a complete test run (e.g., "baseline-256mb", "optimized-512mb")
+- **`correlation_id`**: Groups related jobs within a test run (e.g., all jobs processing the same sequence branch)
+- **`sequence_id`**: Identifies a specific aircraft daily sequence
+- **`code`**: Airport IATA code (e.g., "DUB", "OSL", "DME")
+
+The correlation_id enables proper isolation and grouping of results when multiple jobs process related data, allowing for accurate tracking and aggregation of results within a test run.
 
 ## Aircraft Daily Sequence Generator
 

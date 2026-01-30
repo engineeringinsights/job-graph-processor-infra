@@ -130,11 +130,12 @@ class DelayDataS3Access(IDelayDataAccess):
         self.prefix = _normalize_prefix(prefix)
         self.s3 = boto3.client("s3")
 
-    def _key(self, code: str, run_id: str, sequence_id: int) -> str:
-        return f"{self.prefix}/{run_id}/delays/{sequence_id}/{code}.parquet"
+    def _key(self, code: str, run_id: str, sequence_id: int, correlation_id: str) -> str:
+        name = f"{code}_{sequence_id}_{correlation_id}"
+        return f"{self.prefix}/{run_id}/delays/{correlation_id}/{name}.parquet"
 
-    def store_delays(self, delays: pd.DataFrame, code: str, run_id: str, sequence_id: int) -> str:
-        key = self._key(code, run_id, sequence_id)
+    def store_delays(self, delays: pd.DataFrame, code: str, run_id: str, sequence_id: int, correlation_id: str) -> str:
+        key = self._key(code, run_id, sequence_id, correlation_id)
 
         # Convert DataFrame to parquet in memory
         buffer = io.BytesIO()
@@ -164,16 +165,16 @@ class PercentilesS3DataAccess(IPercentilesDataAccess):
         self.prefix = _normalize_prefix(prefix)
         self.s3 = boto3.client("s3")
 
-    def _key(self, run_id: str, sequence_id: int) -> str:
-        return f"{self.prefix}/{run_id}/percentiles/{sequence_id}/{sequence_id}.json"
+    def _key(self, run_id: str, sequence_id: int, correlation_id: str) -> str:
+        return f"{self.prefix}/{run_id}/percentiles/{correlation_id}/{sequence_id}.json"
 
-    def store_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
-        key = self._key(run_id, sequence_id)
+    def store_percentiles(self, run_id: str, sequence_id: int, correlation_id: str, percentile: dict):
+        key = self._key(run_id, sequence_id, correlation_id)
         json_str = json.dumps(percentile, indent=2, default=str)
         self.s3.put_object(Bucket=self.bucket, Key=key, Body=json_str.encode("utf-8"))
 
-    def get_percentiles(self, run_id: str, sequence_id: int) -> dict:
-        key = self._key(run_id, sequence_id)
+    def get_percentiles(self, run_id: str, sequence_id: int, correlation_id: str) -> dict:
+        key = self._key(run_id, sequence_id, correlation_id)
         try:
             response = self.s3.get_object(Bucket=self.bucket, Key=key)
             content = response["Body"].read().decode("utf-8")
@@ -191,16 +192,16 @@ class MergedPercentilesS3DataAccess(IMergedPercentilesDataAccess):
         self.prefix = _normalize_prefix(prefix)
         self.s3 = boto3.client("s3")
 
-    def _key(self, run_id: str, sequence_id: int) -> str:
-        return f"{self.prefix}/{run_id}/merged_percentiles/{sequence_id}.json"
+    def _key(self, run_id: str) -> str:
+        return f"{self.prefix}/{run_id}/merged_percentiles/merged_percentiles.json"
 
-    def store_merged_percentiles(self, run_id: str, sequence_id: int, percentile: dict):
-        key = self._key(run_id, sequence_id)
+    def store_merged_percentiles(self, run_id: str, percentile: dict):
+        key = self._key(run_id)
         json_str = json.dumps(percentile, indent=2, default=str)
         self.s3.put_object(Bucket=self.bucket, Key=key, Body=json_str.encode("utf-8"))
 
-    def get_merged_percentiles(self, run_id: str, sequence_id: int) -> dict:
-        key = self._key(run_id, sequence_id)
+    def get_merged_percentiles(self, run_id: str) -> dict:
+        key = self._key(run_id)
         try:
             response = self.s3.get_object(Bucket=self.bucket, Key=key)
             content = response["Body"].read().decode("utf-8")
