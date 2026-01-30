@@ -10,6 +10,9 @@ from service.dal.s3 import (
     SequenceS3DataAccess,
 )
 
+from service.dal.s3 import ModelS3DataAccess, PercentilesS3DataAccess, SequenceS3DataAccess
+from service.dal.in_memory import JobDataAccessInMemory
+
 BUCKET_NAME = os.environ["BUCKET_NAME"]
 
 # Get the absolute path to data directory
@@ -26,5 +29,6 @@ def s3_for_models(model_id: int):
         percentiles_access=PercentilesS3DataAccess(bucket=BUCKET_NAME, prefix="data"),
         delay_data_access=DelayDataS3Access(bucket=BUCKET_NAME, prefix="data"),
         sequence_data_access=SequenceS3DataAccess(bucket=BUCKET_NAME, prefix="data"),
+        job_data_access=JobDataAccessInMemory(),
         merged_percentiles_data_access=MergedPercentilesS3DataAccess(bucket=BUCKET_NAME, prefix="data"),
     )
